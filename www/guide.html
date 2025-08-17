@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <title>How To Use App</title>
+  <style>
+    /* Inline styles for quick tweaks */
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+      color: #333;
+    }
+    /* Header */
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #2c3e50;
+  color: white;
+  padding: 0.75rem 1.25rem;
+}
+
+.site-title {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.top-nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.nav-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: white;
+}
+
+    header, footer {
+      background-color: #333;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+    main {
+      padding: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>How To Use Elex 1 App</h1>
+    <nav class="top-nav">
+      <a href="index.html"><img src="icons/flashcards.svg" alt="Play" width="32" height="32" />
+      </a>
+      <a href="solving.html"><img src="icons/solving.svg" alt="Play" width="32" height="32" />
+      </a>
+      <a href="../pdfjs/index.html"><img src="icons/pdf-viewer.svg" alt="Play" width="32" height="32" />
+      </a>
+      <a href="guide.html"><img src="icons/info.svg" alt="Play" width="32" height="32" />
+      </a>
+    </nav>
+  </header>
+
+  <main>
+    <section>
+      <h2>🧭 Navigation</h2>
+        <p>🏠 <strong>Home:</strong> Visit <code>/index.html</code> to explore all topics.</p>
+        <p>🧮 <strong>Solving Mode:</strong> Go to <code>/solving.html</code> to practice problem-solving flashcards.</p>
+        <p>📄 <strong>PDF View:</strong> Use <code>/pdf.html</code> for printable references and visual summaries.</p>
+    </section>
+    <section>
+      <h2>🧪 Practice Flashcards</h2>
+        <p>🧠 <strong>Choose a Topic:</strong> Topics like <em>Semiconductor Diode</em>, <em>Transistor</em>, <em>Biasing</em>, and <em>Amplifiers</em> are available.</p>
+        <p>🖼️ <strong>View Questions and Answers:</strong> Each flashcard shows a circuit or problem image (e.g., <code>Q3.jpeg</code>) and its solution (<code>Q3ans.jpeg</code>).</p>
+        <p>🔁 <strong>Reload Tip:</strong> If a flashcard doesn’t flip correctly, allow it to reload, then click again.</p>
+        <p>📴 <strong>Offline Support:</strong> Once viewed, flashcards are cached for offline access. Look for the ✅ Cached status beside each topic.</p>
+        </section>
+        <section>
+      <h2>🔄 Updates</h2>
+        <p>📅 <strong>Install Updates:</strong> Uninstall the app after update version is detected. Install it again with the install app</p>
+        <p>🔄 <strong>Check for Updates:</strong> Tap the “Check for Updates” button to refresh decks and ensure you’re using the latest content.</p>
+        <p>🧩 <strong>Versioning:</strong> Managed via <code>version.json</code> and smart service worker logic.</p>    
+        </section>
+        <section>
+        <h2>🛠️ Troubleshooting</h2>
+            <p>🖼️ <strong>Missing Images:</strong> If an image doesn’t load offline, it may not be cached yet. Revisit the flashcard while online to store it.</p>
+            <p>⏳ <strong>Cache Age:</strong> Each topic shows how long ago its deck was cached, helping you track freshness.</p>
+        </section>
+    </main>
+
+  <footer>
+    <p>&copy; 2025 Rosario Villasor Espadera. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Inline script for quick functionality
+    console.log("Page loaded!");
+  </script>
+</body>
+</html>

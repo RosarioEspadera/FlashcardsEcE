@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elex1 Flashcards</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="styles-Electronics1/solving.css" />
+
+
+</head>
+<body>
+<header>
+  <h1>Elex1 Flashcards</h1></header>
+  <nav class="top-nav">
+    <a href="index.html"><img src="icons/flashcards.svg" alt="Play" width="32" height="32" />
+    </a>
+    <a href="solving.html"><img src="icons/solving.svg" alt="Play" width="32" height="32" />
+    </a>
+    <a href="../pdfjs/index.html"><img src="icons/pdf-viewer.svg" alt="Play" width="32" height="32" />
+    </a>
+    <a href="guide.html"><img src="icons/info.svg" alt="Play" width="32" height="32" />
+    </a>
+  </nav>
+
+    <section class="topics-grid">
+      <div class="topic-card" data-topic="semiconductor_diode" tabindex="0" role="button" aria-pressed="false">
+        Semiconductor Diode
+      </div>
+      <div class="topic-card" data-topic="transistor" tabindex="0" role="button" aria-pressed="false">
+        Transistor
+      </div>
+      <div class="topic-card" data-topic="transistor_biasing" tabindex="0" role="button" aria-pressed="false">
+        Transistor-Biasing
+      </div>
+      <div class="topic-card" data-topic="transistor_amplifiers" tabindex="0" role="button" aria-pressed="false">
+        Single-Stage-Transistor-Amplifiers
+      </div>
+    </section>
+
+  <section class="card-grid"></section>
+  <section class="flashcard-viewer hidden">
+    <div class="flashcard">
+      <div class="front"></div>
+      <div class="back"></div>
+    </div>
+    <button id="prev" aria-label="Previous">
+      <img src="icons/prev.svg" alt="Play" width="32" height="32" />
+    </button>
+
+    <button id="next" aria-label="Next">
+      <img src="icons/next.svg" alt="Play" width="32" height="32" />
+    </button>
+
+    <p id="card-counter" class="card-counter">📄 Card 1 of 1</p>
+
+    <button id="resetProgress">🔄 Reset Progress</button>
+  </section>
+
+
+  <section class="progress">
+    <p id="progress-info">Select a topic to begin.</p>
+  </section>
+
+  <footer>
+    <p>Built by Rosario Espadera</p>
+  </footer>
+
+<script>
+  // 🌱 DOM Elements
+  const topicCards = document.querySelectorAll(".topic-card");
+  const flashcardViewer = document.querySelector(".flashcard-viewer");
+  const flashcard = document.querySelector(".flashcard");
+  const front = document.querySelector(".front");
+  const back = document.querySelector(".back");
+  const nextBtn = document.getElementById("next");
+  const prevBtn = document.getElementById("prev");
+  const progressInfo = document.getElementById("progress-info");
+  const cardGrid = document.querySelector(".card-grid");
+  const cardCounter = document.getElementById("card-counter");
+
+  // 📦 State
+  let currentCards = [];
+  let currentIndex = 0;
+  let currentTopic = "";
+
+  const topicVarMap = {
+    "semiconductor_diode": "flashcards_semiconductor_diode",
+    "transistor": "flashcards_transistor",
+    "transistor_biasing": "flashcards_transistor_biasing",
+    "transistor_amplifiers": "flashcards_transistor_amplifiers"
+  };
+
+  const topics = Object.keys(topicVarMap);
+
+  // 🔧 Helpers
+  function getBasePath() {
+    return window.location.href.replace(/solving\.html$/, '');
+  }
+
+  function loadJSON(url) {
+    return fetch(url).then(res => {
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      return res.json();
+    });
+  }
+
+  function loadScriptAndWait(path, varName, timeout = 3000) {
+    return new Promise((resolve, reject) => {
+      if (window[varName]) return resolve(window[varName]);
+
+      const alreadyLoaded = [...document.scripts].some(s => s.src.includes(path));
+      const start = Date.now();
+
+      const check = () => {
+        if (window[varName]) return resolve(window[varName]);
+        if (Date.now() - start > timeout) return reject(new Error(`Variable ${varName} not found`));
+        setTimeout(check, 50);
+      };
+
+      if (alreadyLoaded) return check();
+
+      const script = document.createElement("script");
+      script.src = path;
+      script.onload = check;
+      script.onerror = () => reject(new Error(`Failed to load ${path}`));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function loadAllFlashcardData() {
+    const allData = {};
+    for (const topic of topics) {
+      try {
+        const cards = await loadJSON(`${getBasePath()}data-Electronics1solving/${topic}.json`);
+        allData[topic] = cards;
+      } catch (err) {
+        console.warn(`⚠️ Could not load ${topic}:`, err);
+      }
+    }
+    return allData;
+  }
+
+  function renderContent(container, content) {
+    container.innerHTML = "";
+    if (typeof content === "string") {
+      container.textContent = content;
+    } else if (Array.isArray(content)) {
+      content.forEach(item => {
+        if (typeof item === "string") {
+          const p = document.createElement("p");
+          p.textContent = item;
+          container.appendChild(p);
+        } else if (item.type === "img") {
+          const img = document.createElement("img");
+          img.src = item.src;
+          img.alt = item.alt || "";
+          img.style.maxWidth = "100%";
+          img.style.maxHeight = "100%";
+          container.appendChild(img);
+        }
+      });
+    }
+  }
+
+  function showCard(direction = "right") {
+    const card = currentCards[currentIndex];
+    renderContent(front, card.question);
+    renderContent(back, card.answer);
+
+    flashcard.classList.remove("flipped", "slide-left", "slide-right");
+    void flashcard.offsetWidth;
+    flashcard.classList.add(direction === "left" ? "slide-left" : "slide-right");
+
+    cardCounter.textContent = `📄 Card ${currentIndex + 1} of ${currentCards.length}`;
+    progressInfo.textContent = `Showing ${currentTopic} flashcard ${currentIndex + 1}`;
+  }
+
+  function updateLastViewedIndex() {
+    localStorage.setItem(`lastViewed_${currentTopic}`, currentIndex);
+  }
+
+  function handleSwipeGesture() {
+    const swipeThreshold = 50;
+    const deltaX = touchEndX - touchStartX;
+
+    if (Math.abs(deltaX) < swipeThreshold) return;
+
+    if (deltaX > 0 && currentIndex > 0) {
+      currentIndex--;
+      showCard("left");
+    } else if (deltaX < 0 && currentIndex < currentCards.length - 1) {
+      currentIndex++;
+      showCard("right");
+    }
+    updateLastViewedIndex();
+  }
+
+  // 🖐️ Swipe Events
+  let touchStartX = 0;
+  let touchEndX = 0;
+
+  flashcard.addEventListener("touchstart", e => {
+    touchStartX = e.changedTouches[0].screenX;
+  });
+
+  flashcard.addEventListener("touchend", e => {
+    touchEndX = e.changedTouches[0].screenX;
+    handleSwipeGesture();
+  });
+
+  flashcard.addEventListener("click", () => {
+  flashcard.classList.toggle("flipped");
+});
+
+
+  // 🔄 Reset Progress
+  document.getElementById("resetProgress").addEventListener("click", () => {
+    localStorage.removeItem(`lastViewed_${currentTopic}`);
+    currentIndex = 0;
+    showCard();
+  });
+
+nextBtn.addEventListener("click", () => {
+  if (currentIndex < currentCards.length - 1) {
+    currentIndex++;
+    showCard("right");
+    updateLastViewedIndex();
+  }
+});
+
+prevBtn.addEventListener("click", () => {
+  if (currentIndex > 0) {
+    currentIndex--;
+    showCard("left");
+    updateLastViewedIndex();
+  }
+});
+
+  // 🧠 Topic Selection
+  topicCards.forEach(card => {
+    card.onclick = async () => {
+      const topic = card.dataset.topic;
+      const varName = topicVarMap[topic];
+
+      progressInfo.textContent = `⏳ Loading ${topic}...`;
+      cardGrid.innerHTML = "";
+      flashcardViewer.classList.add("hidden");
+
+      try {
+        const cards = await loadScriptAndWait(`${getBasePath()}data-Electronics1solving/${topic}.js`, varName);
+        if (!Array.isArray(cards)) throw new Error(`Variable ${varName} is not an array`);
+
+        currentCards = cards;
+        currentTopic = topic;
+
+        const savedIndex = parseInt(localStorage.getItem(`lastViewed_${topic}`), 10);
+        currentIndex = isNaN(savedIndex) ? 0 : Math.min(savedIndex, cards.length - 1);
+
+        showCard();
+        flashcardViewer.classList.remove("hidden");
+        progressInfo.textContent = `📘 Studying: ${topic} (${cards.length} cards)`;
+
+        console.log(`✅ Loaded topic: ${topic}`);
+      } catch (err) {
+        console.error(`❌ Failed to load topic ${topic}:`, err);
+        progressInfo.textContent = `❌ Could not load ${topic}. Check if the file exists and exports "${varName}".`;
+      }
+    };
+  });
+
+  // 🧹 Optional preload (if renderFlashcards is defined)
+  if (typeof renderFlashcards === "function") {
+    loadAllFlashcardData().then(renderFlashcards);
+  }
+</script>
+
+</body>
+</html>
