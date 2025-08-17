@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MSE Flashcards (Offline)</title>
+  <style>
+    :root{
+      --bg:#fdf6e3; --text:#222; --card:#fff; --accent:#268bd2; --muted:#e6e6e6;
+      --brand:#007acc;
+    }
+    body.dark{ --bg:#1f1f1f; --text:#eee; --card:#2b2b2b; --accent:#ffb86c; --muted:#3a3a3a; --brand:#2d7bdc; }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      display:flex; min-height:100vh; flex-direction:column;
+    }
+    /* Top nav like your other pages */
+    .top-nav{
+      position:sticky; top:0; z-index:10; display:flex; gap:16px; align-items:center;
+      padding:10px 14px; background:var(--brand); color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.2);
+    }
+    .top-nav a{ display:inline-flex; align-items:center; gap:8px; color:#fff; text-decoration:none; font-weight:600; }
+    .top-nav img{ width:28px; height:28px; filter:brightness(0) invert(1) }
+    .top-nav .spacer{ flex:1 }
+    .top-nav button{ background:rgba(255,255,255,.15); border:0; color:#fff; padding:8px 10px; border-radius:8px; cursor:pointer }
+    .top-nav button:hover{ background:rgba(255,255,255,.25) }
+
+    main{ width:100%; max-width:960px; margin:0 auto; padding:18px; flex:1; display:flex; flex-direction:column; align-items:center }
+
+    .toolbar{
+      width:100%; display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:center; margin:8px 0 16px;
+    }
+    select, .btn{
+      padding:10px 12px; border-radius:10px; border:1px solid var(--muted); background:var(--card); color:var(--text);
+      cursor:pointer; min-width:180px;
+    }
+    .btn.primary{ background:var(--accent); color:#fff; border-color:transparent }
+    .btn:hover{ filter:brightness(0.98) }
+
+    .card{
+      width:min(90vw, 520px); height:280px; perspective:1200px; margin:10px auto;
+    }
+    .card-inner{
+      position:relative; width:100%; height:100%; transform-style:preserve-3d; transition:transform .6s;
+    }
+    .card.flipped .card-inner{ transform:rotateY(180deg) }
+    .card-face{
+      position:absolute; inset:0; display:flex; flex-direction:column; gap:10px; justify-content:center; align-items:center;
+      padding:16px; backface-visibility:hidden; border-radius:14px; background:var(--card);
+      box-shadow:0 8px 22px rgba(0,0,0,.12);
+      text-align:center;
+    }
+    .card-back{ transform:rotateY(180deg); background:var(--accent); color:#fff }
+    h1{ margin:10px 0 6px; font-size:1.35rem }
+    .meta{ opacity:.8; font-size:.9rem }
+
+    .controls{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:10px 0 8px }
+    .progress{ width:min(90vw, 520px); height:8px; background:var(--muted); border-radius:999px; overflow:hidden; margin:8px auto 0 }
+    .progress > div{ height:100%; width:0%; background:var(--accent); transition:width .25s }
+
+    .hint{ font-size:.9rem; opacity:.7; margin-top:6px; text-align:center }
+
+    /* Flashcards modal (open Flashcards icon -> subject chooser) */
+    dialog{ border:none; border-radius:14px; max-width:560px; width:92vw; padding:0; background:var(--card); color:var(--text); }
+    dialog::backdrop{ background:rgba(0,0,0,.4) }
+    .dlg-head{ padding:14px 16px; background:var(--brand); color:#fff; border-top-left-radius:14px; border-top-right-radius:14px; font-weight:700 }
+    .dlg-body{ padding:16px; display:grid; gap:10px }
+    .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px }
+    .grid a{ display:block; padding:10px; border:1px solid var(--muted); border-radius:12px; background:var(--card); text-decoration:none; color:inherit }
+    .dlg-foot{ padding:12px 16px; text-align:right }
+  </style>
+</head>
+<body>
+<!-- Top nav -->
+<nav class="top-nav" role="navigation" aria-label="Primary">
+  <a href="#" id="flashcardsChooser"><img src="icons/flashcards.svg" alt="Flashcards">Flashcards</a>
+  <a href="../www/solving.html"><img src="icons/solving.svg" alt="Solving"></a>
+  <a href="../pdfjs/index.html"><img src="icons/pdf-viewer.svg" alt="PDF Viewer"></a>
+  <a href="../www/guide.html"><img src="icons/info.svg" alt="Guide"></a>
+  <span class="spacer"></span>
+  <button id="themeBtn" title="Toggle theme">🌓 Theme</button>
+</nav>
+
+<main>
+  <h1>Materials Science & Engineering — Flashcards</h1>
+
+  <div class="toolbar">
+    <select id="topicSelect" title="Choose topic">
+      <option value="topic-structure" selected>Structure of Materials (100)</option>
+      <option value="topic-mechanics">Mechanical Properties (100)</option>
+      <option value="topic-electromagnetics">Electromagnetics (100)</option>
+      <option value="topic-electronics">Electronics (100)</option>
+      <option value="topic-thermodynamics">Thermodynamics (100)</option>
+      <option value="topic-fluid-mechanics">Fluid-Mechanics</option>
+      <option value="topic-electricity">Electricity (100)</option>
+      <option value="topic-magnetism">Magnetism (100)</option>
+      <option value="topic-electrochemistry">Electrochemistry (100)</option>
+    </select>
+
+    <button class="btn" id="prevBtn">◀ Prev</button>
+    <button class="btn" id="nextBtn">Next ▶</button>
+    <button class="btn" id="shuffleBtn">🔀 Shuffle</button>
+    <button class="btn" id="resetBtn">↺ Reset</button>
+    <button class="btn primary" id="loadJsonBtn">📥 Load JSON</button>
+  </div>
+
+  <div class="card" id="card">
+    <div class="card-inner" id="cardInner">
+      <div class="card-face card-front">
+        <div id="qText">Question</div>
+        <div class="meta" id="metaFront">—</div>
+      </div>
+      <div class="card-face card-back">
+        <div id="aText">Answer</div>
+        <div class="meta" id="metaBack">Tap to flip back</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <span id="counter">Card 1 / 1</span>
+  </div>
+  <div class="progress"><div id="progressFill"></div></div>
+  <div class="hint">Tip: tap the card to flip • long-press Next to jump +5 • works fully offline</div>
+</main>
+
+<!-- Flashcards chooser dialog (when clicking the Flashcards icon) -->
+<dialog id="chooserDlg">
+  <div class="dlg-head">Choose Flashcards Subject</div>
+  <div class="dlg-body">
+    <p>Select a subject:</p>
+    <div class="grid">
+      <a href="../www/index.html">Elex1</a>
+      <a href="index.html">MSE</a>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn" id="closeChooser">Close</button>
+  </div>
+</dialog>
+
+<!-- ==========================
+     Embedded Topic Packs
+     ========================== -->
+
+<!-- Topic: Structure of Materials (100 cards) -->
+<script type="application/json" id="topic-structure">
+  [
+    {"id":"STR-001","question":"What are the four primary classes of engineering materials?","answer":"Metals, ceramics, polymers, and composites.","tags":["overview"],"difficulty":"easy"},
+    {"id":"STR-002","question":"Define crystalline solid.","answer":"A solid in which atoms are arranged in a periodic, repeating 3D lattice.","tags":["crystal"],"difficulty":"easy"},
+    {"id":"STR-003","question":"Define amorphous solid.","answer":"A solid lacking long-range order; atoms arranged without periodicity.","tags":["amorphous"],"difficulty":"easy"},
+    {"id":"STR-004","question":"Name three common metallic crystal structures.","answer":"FCC (face-centered cubic), BCC (body-centered cubic), and HCP (hexagonal close-packed).","tags":["crystal"],"difficulty":"easy"},
+    {"id":"STR-005","question":"Which has more slip systems, FCC or HCP metals?","answer":"FCC has more slip systems; HCP typically has limited slip, making it less ductile.","tags":["slip","ductility"],"difficulty":"medium"},
+    {"id":"STR-006","question":"What is a unit cell?","answer":"The smallest repeating structural unit that builds up the crystal lattice by translation.","tags":["crystal"],"difficulty":"easy"},
+    {"id":"STR-007","question":"What is atomic packing factor (APF)?","answer":"The fraction of unit cell volume occupied by atoms.","tags":["apf"],"difficulty":"medium"},
+    {"id":"STR-008","question":"Which structure has the highest APF: FCC, BCC, or HCP?","answer":"FCC and HCP share the highest APF (~0.74); BCC is lower (~0.68).","tags":["apf"],"difficulty":"medium"},
+    {"id":"STR-009","question":"Define Miller indices (hkl).","answer":"A set of integers that denote crystallographic planes based on intercepts with axes.","tags":["miller"],"difficulty":"medium"},
+    {"id":"STR-010","question":"What is a grain in polycrystalline materials?","answer":"A region of uniform crystal orientation within a polycrystalline solid.","tags":["grains"],"difficulty":"easy"},
+    {"id":"STR-011","question":"What is a grain boundary?","answer":"The interface between two grains of different orientations.","tags":["grains"],"difficulty":"easy"},
+    {"id":"STR-012","question":"How does grain size affect yield strength?","answer":"Smaller grains usually increase yield strength (Hall–Petch relationship).","tags":["strength"],"difficulty":"medium"},
+    {"id":"STR-013","question":"Define point defect.","answer":"A localized disruption of the perfect lattice at or around a single lattice site (vacancy, interstitial, substitutional).","tags":["defects"],"difficulty":"easy"},
+    {"id":"STR-014","question":"Define line defect.","answer":"A one-dimensional defect such as a dislocation within the crystal.","tags":["defects","dislocation"],"difficulty":"easy"},
+    {"id":"STR-015","question":"Define edge dislocation.","answer":"A dislocation characterized by an extra half-plane of atoms inserted in the crystal.","tags":["dislocation"],"difficulty":"medium"},
+    {"id":"STR-016","question":"Define screw dislocation.","answer":"A dislocation where atomic planes form a helical ramp around the dislocation line.","tags":["dislocation"],"difficulty":"medium"},
+    {"id":"STR-017","question":"What is the Burgers vector?","answer":"A vector that represents the magnitude and direction of lattice distortion due to a dislocation.","tags":["dislocation"],"difficulty":"medium"},
+    {"id":"STR-018","question":"Name a planar defect.","answer":"Grain boundaries, twin boundaries, stacking faults, phase boundaries.","tags":["defects"],"difficulty":"easy"},
+    {"id":"STR-019","question":"What is a stacking fault?","answer":"A planar defect due to an interruption in the normal stacking sequence of close-packed planes.","tags":["defects"],"difficulty":"medium"},
+    {"id":"STR-020","question":"Define twin boundary.","answer":"A mirrored lattice orientation across a coherent interface.","tags":["defects"],"difficulty":"medium"},
+    {"id":"STR-021","question":"What is polymorphism (allotropy)?","answer":"The ability of a material (element/compound) to exist in more than one crystal structure.","tags":["polymorph"],"difficulty":"easy"},
+    {"id":"STR-022","question":"Give an example of an element that exhibits allotropy.","answer":"Iron (α-Fe BCC, γ-Fe FCC), carbon (diamond vs graphite).","tags":["polymorph"],"difficulty":"easy"},
+    {"id":"STR-023","question":"What is X-ray diffraction (XRD) used for?","answer":"Determining crystal structure and interplanar spacing by analyzing diffraction patterns.","tags":["xrd"],"difficulty":"medium"},
+    {"id":"STR-024","question":"Bragg’s law relates what quantities?","answer":"Diffraction angle, interplanar spacing, and X-ray wavelength: nλ=2d sinθ.","tags":["xrd"],"difficulty":"medium"},
+    {"id":"STR-025","question":"Define coordination number.","answer":"Number of nearest neighbors surrounding an atom in the lattice.","tags":["crystal"],"difficulty":"easy"},
+    {"id":"STR-026","question":"Coordination number of FCC?","answer":"12.","tags":["crystal"],"difficulty":"easy"},
+    {"id":"STR-027","question":"Coordination number of BCC?","answer":"8.","tags":["crystal"],"difficulty":"easy"},
+    {"id":"STR-028","question":"Coordination number of HCP?","answer":"12.","tags":["crystal"],"difficulty":"easy"},
+    {"id":"STR-029","question":"Define anisotropy.","answer":"Directional dependence of properties in a material.","tags":["anisotropy"],"difficulty":"easy"},
+    {"id":"STR-030","question":"Why are single crystals often anisotropic?","answer":"Because properties depend on crystallographic direction due to lattice symmetry.","tags":["anisotropy"],"difficulty":"medium"},
+    {"id":"STR-031","question":"Define isotropy.","answer":"Properties are the same in all directions (often approximated in polycrystals with random texture).","tags":["anisotropy"],"difficulty":"easy"},
+    {"id":"STR-032","question":"What is texture in materials?","answer":"Preferred crystallographic orientation of grains.","tags":["texture"],"difficulty":"medium"},
+    {"id":"STR-033","question":"How can cold working affect texture?","answer":"Deformation can align slip systems, producing strong texture.","tags":["texture"],"difficulty":"medium"},
+    {"id":"STR-034","question":"What is recrystallization?","answer":"Formation of new, strain-free grains during annealing after cold work.","tags":["recrystallization"],"difficulty":"medium"},
+    {"id":"STR-035","question":"What is grain growth?","answer":"Increase in average grain size driven by reduction of grain boundary energy.","tags":["grains"],"difficulty":"medium"},
+    {"id":"STR-036","question":"Define vacancy.","answer":"A missing atom at a lattice site.","tags":["defects"],"difficulty":"easy"},
+    {"id":"STR-037","question":"Define self-interstitial.","answer":"An atom of the same species positioned at a non-lattice site.","tags":["defects"],"difficulty":"easy"},
+    {"id":"STR-038","question":"Define substitutional impurity.","answer":"A solute atom that replaces a solvent atom on a lattice site.","tags":["defects","alloy"],"difficulty":"easy"},
+    {"id":"STR-039","question":"Hume-Rothery rules refer to what?","answer":"Conditions favoring substitutional solid solution formation (size, structure, valency, electronegativity).","tags":["alloy"],"difficulty":"medium"},
+    {"id":"STR-040","question":"What is interstitial solid solution?","answer":"Small solute atoms occupy interstitial sites in the host lattice (e.g., C in Fe).","tags":["alloy"],"difficulty":"medium"},
+    {"id":"STR-041","question":"FCC vs BCC diffusion pathways— which generally diffuses faster at same T?","answer":"Usually BCC due to lower atomic packing (more open), but depends on mechanism.","tags":["diffusion/structure"],"difficulty":"hard"},
+    {"id":"STR-042","question":"Define slip system.","answer":"A combination of slip plane and slip direction along which dislocations move.","tags":["slip"],"difficulty":"medium"},
+    {"id":"STR-043","question":"Primary slip plane in FCC metals?","answer":"{111} planes with ⟨110⟩ directions.","tags":["slip"],"difficulty":"medium"},
+    {"id":"STR-044","question":"Why are FCC metals generally more ductile?","answer":"They have many close-packed slip systems, easing dislocation motion.","tags":["ductility"],"difficulty":"medium"},
+    {"id":"STR-045","question":"What is Peierls–Nabarro stress?","answer":"The theoretical shear stress required to move a dislocation.","tags":["dislocation"],"difficulty":"hard"},
+    {"id":"STR-046","question":"Define work hardening (strain hardening).","answer":"Increase in strength due to dislocation accumulation and interaction during plastic deformation.","tags":["strength"],"difficulty":"medium"},
+    {"id":"STR-047","question":"What do TEM images reveal about dislocations?","answer":"They can directly image dislocation lines, stacking faults, and other defects.","tags":["TEM"],"difficulty":"hard"},
+    {"id":"STR-048","question":"What is a phase?","answer":"A region of material with uniform structure and composition.","tags":["phase"],"difficulty":"easy"},
+    {"id":"STR-049","question":"What is a phase boundary?","answer":"The interface separating two phases of different structure/composition.","tags":["phase"],"difficulty":"easy"},
+    {"id":"STR-050","question":"Short-range vs long-range order—difference?","answer":"Short-range: order over a few atomic distances; long-range: periodicity over large distances (crystals).","tags":["order"],"difficulty":"medium"},
+    {"id":"STR-051","question":"Define lamellar microstructure.","answer":"Alternating plate-like phases arranged in layers (e.g., pearlite).","tags":["microstructure"],"difficulty":"medium"},
+    {"id":"STR-052","question":"What is stacking sequence in close-packed structures?","answer":"FCC: ABCABC…; HCP: ABABAB…","tags":["crystal"],"difficulty":"medium"},
+    {"id":"STR-053","question":"What is a coherent interface?","answer":"An interface where atomic planes are continuous across the boundary with minimal mismatch.","tags":["interface"],"difficulty":"hard"},
+    {"id":"STR-054","question":"What is an incoherent interface?","answer":"An interface with significant lattice mismatch; planes are not continuous.","tags":["interface"],"difficulty":"hard"},
+    {"id":"STR-055","question":"How does stacking fault energy (SFE) affect deformation?","answer":"Low SFE promotes wider partial dislocations and twinning; affects work hardening.","tags":["SFE"],"difficulty":"hard"},
+    {"id":"STR-056","question":"Define nanocrystalline material.","answer":"Material with grain sizes typically <100 nm.","tags":["nano"],"difficulty":"medium"},
+    {"id":"STR-057","question":"Effect of nanocrystallinity on strength?","answer":"Strength generally increases with decreasing grain size (to a limit).","tags":["nano"],"difficulty":"medium"},
+    {"id":"STR-058","question":"What is an intermetallic compound?","answer":"A solid with specific stoichiometry and ordered crystal structure (e.g., Ni3Al).","tags":["ordered"],"difficulty":"hard"},
+    {"id":"STR-059","question":"Define order–disorder transformation.","answer":"A change between ordered and disordered atomic arrangements with temperature/composition.","tags":["ordered"],"difficulty":"hard"},
+    {"id":"STR-060","question":"What is a superlattice?","answer":"An ordered arrangement of different atomic species creating a larger periodicity than the basic lattice.","tags":["ordered"],"difficulty":"hard"},
+    {"id":"STR-061","question":"How do precipitates strengthen alloys?","answer":"They impede dislocation motion via cutting or bypass (Orowan) mechanisms.","tags":["strength"],"difficulty":"hard"},
+    {"id":"STR-062","question":"What is a Guinier–Preston (GP) zone?","answer":"A fine solute-rich cluster formed during age hardening before coherent precipitates form.","tags":["aging"],"difficulty":"hard"},
+    {"id":"STR-063","question":"Define amorphous metal (metallic glass).","answer":"A metal cooled fast enough to avoid crystallization, producing a disordered structure.","tags":["amorphous"],"difficulty":"hard"},
+    {"id":"STR-064","question":"Why do metallic glasses often exhibit high strength?","answer":"Absence of crystalline defects like dislocations; deformation via shear transformation zones.","tags":["amorphous"],"difficulty":"hard"},
+    {"id":"STR-065","question":"What is porosity?","answer":"The presence of voids within a material; affects density and properties.","tags":["defects"],"difficulty":"easy"},
+    {"id":"STR-066","question":"Define inclusion.","answer":"A non-metallic particle trapped in a metal, often from processing (e.g., oxides, sulfides).","tags":["defects"],"difficulty":"medium"},
+    {"id":"STR-067","question":"How do twins strengthen materials?","answer":"Twin boundaries act as barriers to dislocation motion similar to grain boundaries.","tags":["twins"],"difficulty":"hard"},
+    {"id":"STR-068","question":"What microstructural feature distinguishes pearlite?","answer":"Lamellae of ferrite and cementite in eutectoid steels.","tags":["steel"],"difficulty":"medium"},
+    {"id":"STR-069","question":"Define martensite (structure level).","answer":"A supersaturated, diffusionless body-centered tetragonal (BCT) phase formed by shear transformation.","tags":["steel"],"difficulty":"hard"},
+    {"id":"STR-070","question":"What is bainite?","answer":"A microstructure of ferrite with fine carbides formed at intermediate temperatures between pearlite and martensite.","tags":["steel"],"difficulty":"hard"},
+    {"id":"STR-071","question":"What are precipitate-free zones (PFZs)?","answer":"Regions near grain boundaries depleted of strengthening precipitates.","tags":["aging"],"difficulty":"hard"},
+    {"id":"STR-072","question":"Define dispersion strengthening.","answer":"Hardening by uniformly distributed, stable second-phase particles resisting dislocation motion.","tags":["strength"],"difficulty":"hard"},
+    {"id":"STR-073","question":"What is Orowan looping?","answer":"Dislocations bypass non-shearable particles by bowing around them, leaving loops.","tags":["strength"],"difficulty":"hard"},
+    {"id":"STR-074","question":"Define phase fraction.","answer":"The proportion of a given phase in a microstructure.","tags":["phase"],"difficulty":"medium"},
+    {"id":"STR-075","question":"What is epitaxy?","answer":"Growth of a crystal layer on a substrate such that the layer mimics the substrate’s lattice orientation.","tags":["thin films"],"difficulty":"hard"},
+    {"id":"STR-076","question":"Define misfit dislocation.","answer":"A dislocation introduced at an interface to accommodate lattice mismatch.","tags":["thin films"],"difficulty":"hard"},
+    {"id":"STR-077","question":"What is a Schottky defect?","answer":"Paired vacancies of cation and anion in ionic crystals to maintain charge neutrality.","tags":["ionic"],"difficulty":"hard"},
+    {"id":"STR-078","question":"What is a Frenkel defect?","answer":"An ion leaves its lattice site to occupy an interstitial position, creating a vacancy–interstitial pair.","tags":["ionic"],"difficulty":"hard"},
+    {"id":"STR-079","question":"Define coordination polyhedron.","answer":"The geometric arrangement of nearest neighbors around a central atom/ion.","tags":["crystal chemistry"],"difficulty":"hard"},
+    {"id":"STR-080","question":"What are anti-phase boundaries (APBs)?","answer":"Planar defects in ordered alloys where the order sequence is shifted across the boundary.","tags":["ordered"],"difficulty":"hard"},
+    {"id":"STR-081","question":"Why does cold work raise dislocation density?","answer":"Plastic deformation generates and multiplies dislocations.","tags":["dislocation"],"difficulty":"medium"},
+    {"id":"STR-082","question":"Define critical resolved shear stress (CRSS).","answer":"Minimum shear stress on a slip system required to initiate slip.","tags":["slip"],"difficulty":"hard"},
+    {"id":"STR-083","question":"How does temperature affect dislocation mobility?","answer":"Higher temperatures generally increase mobility via thermally activated processes.","tags":["dislocation"],"difficulty":"medium"},
+    {"id":"STR-084","question":"What is recovery during annealing?","answer":"Reduction of stored energy by dislocation rearrangement and annihilation without new grains forming.","tags":["anneal"],"difficulty":"medium"},
+    {"id":"STR-085","question":"Define Zener pinning.","answer":"Particle pinning of grain boundaries that inhibits grain growth.","tags":["grains"],"difficulty":"hard"},
+    {"id":"STR-086","question":"What is a Widmanstätten pattern?","answer":"Characteristic plate-like microstructure formed by precipitation along specific crystallographic planes.","tags":["microstructure"],"difficulty":"hard"},
+    {"id":"STR-087","question":"Difference between coherent and semi-coherent precipitates?","answer":"Semi-coherent have periodic misfit dislocations; coherency partly maintained.","tags":["precipitate"],"difficulty":"hard"},
+    {"id":"STR-088","question":"Define lamella spacing effect on strength (e.g., pearlite).","answer":"Finer lamellae spacing increases strength due to more interfaces impeding slip.","tags":["microstructure"],"difficulty":"hard"},
+    {"id":"STR-089","question":"What is spinodal decomposition (structure view)?","answer":"Continuous composition modulation producing interconnected phases without nucleation barrier.","tags":["phase"],"difficulty":"hard"},
+    {"id":"STR-090","question":"How do voids initiate ductile fracture?","answer":"Nucleation at inclusions, growth, and coalescence lead to micro-voided structure and final fracture.","tags":["defects"],"difficulty":"hard"},
+    {"id":"STR-091","question":"What is fiber texture?","answer":"A texture where one crystallographic direction is aligned with a sample axis; others random in plane.","tags":["texture"],"difficulty":"hard"},
+    {"id":"STR-092","question":"Define mosaic crystal.","answer":"A crystal composed of slightly misoriented blocks; useful concept in diffraction.","tags":["xrd"],"difficulty":"hard"},
+    {"id":"STR-093","question":"What is the role of intergranular films in ceramics?","answer":"Thin amorphous/crystalline layers at grain boundaries affect diffusion and strength.","tags":["ceramics"],"difficulty":"hard"},
+    {"id":"STR-094","question":"How does porosity affect elastic modulus?","answer":"Modulus decreases with increasing porosity due to load-bearing area loss.","tags":["porosity"],"difficulty":"medium"},
+    {"id":"STR-095","question":"What is graphitization (structure change)?","answer":"Transformation toward graphite-like ordering in carbon materials upon heat treatment.","tags":["carbon"],"difficulty":"hard"},
+    {"id":"STR-096","question":"Define short-range ordered (SRO) alloy.","answer":"An alloy where neighboring atomic preferences exist without full long-range order.","tags":["ordered"],"difficulty":"hard"},
+    {"id":"STR-097","question":"What is a core–shell particle microstructure?","answer":"Particles with distinct composition/structure core and shell used for tailored interfaces.","tags":["composites"],"difficulty":"hard"},
+    {"id":"STR-098","question":"How does stacking fault density influence mechanical twins?","answer":"Lower SFE promotes twinning; more faults favor twinning over slip.","tags":["SFE"],"difficulty":"hard"},
+    {"id":"STR-099","question":"Define crystallite size vs grain size in XRD context.","answer":"Crystallite size is coherent diffraction domain (can be smaller than grain size).","tags":["xrd"],"difficulty":"hard"},
+    {"id":"STR-100","question":"Name one method to quantify grain size from images.","answer":"ASTM grain size number via intercept/planimetric methods; EBSD mapping.","tags":["grains"],"difficulty":"hard"}
+  ]
+</script>
+<script type="application/json" id="topic-mechanics">
+  [
+    {"id":"MECH-001","question":"Define stress.","answer":"Internal force per unit area: σ = F/A.","tags":["basics"],"difficulty":"easy"},
+    {"id":"MECH-002","question":"Define strain.","answer":"Deformation per unit length: ε = ΔL/L₀.","tags":["basics"],"difficulty":"easy"},
+    {"id":"MECH-003","question":"What is Young’s modulus?","answer":"Slope of the linear elastic stress–strain region; stiffness (E = σ/ε).","tags":["elasticity"],"difficulty":"easy"},
+    {"id":"MECH-004","question":"Units of stress and modulus?","answer":"Pa (N/m²); commonly MPa or GPa.","tags":["units"],"difficulty":"easy"},
+    {"id":"MECH-005","question":"Define Poisson’s ratio.","answer":"ν = −(lateral strain)/(axial strain).","tags":["elasticity"],"difficulty":"easy"},
+    {"id":"MECH-006","question":"Typical ν for metals?","answer":"~0.25–0.35 (often ≈0.33).","tags":["elasticity"],"difficulty":"easy"},
+    {"id":"MECH-007","question":"Hooke’s law (uniaxial).","answer":"σ = E ε in linear elastic region.","tags":["elasticity"],"difficulty":"easy"},
+    {"id":"MECH-008","question":"Shear stress and strain symbols.","answer":"τ for shear stress, γ for shear strain; τ = G γ.","tags":["shear"],"difficulty":"easy"},
+    {"id":"MECH-009","question":"What is shear modulus G?","answer":"Resistance to shear deformation; G = E/[2(1+ν)].","tags":["elasticity"],"difficulty":"medium"},
+    {"id":"MECH-010","question":"Bulk modulus K relates to what?","answer":"Volumetric stiffness: K = E/[3(1−2ν)].","tags":["elasticity"],"difficulty":"medium"},
+    {"id":"MECH-011","question":"Define yield strength (σy).","answer":"Stress at which noticeable plastic deformation begins (often 0.2% offset).","tags":["strength"],"difficulty":"easy"},
+    {"id":"MECH-012","question":"Define ultimate tensile strength (UTS).","answer":"Maximum engineering stress before necking in tension.","tags":["strength"],"difficulty":"easy"},
+    {"id":"MECH-013","question":"Define ductility (percent elongation).","answer":"(L_f − L₀)/L₀ × 100%.","tags":["ductility"],"difficulty":"easy"},
+    {"id":"MECH-014","question":"Define reduction in area.","answer":"(A₀ − A_f)/A₀ × 100%.","tags":["ductility"],"difficulty":"easy"},
+    {"id":"MECH-015","question":"What is resilience?","answer":"Elastic energy per volume recoverable on unloading (≈ σy²/2E for linear).","tags":["energy"],"difficulty":"medium"},
+    {"id":"MECH-016","question":"What is toughness?","answer":"Energy per volume to fracture; area under stress–strain curve to failure.","tags":["energy"],"difficulty":"easy"},
+    {"id":"MECH-017","question":"Engineering vs true stress.","answer":"Engineering: load/A₀; True: load/A_instant.","tags":["true/eng"],"difficulty":"medium"},
+    {"id":"MECH-018","question":"Engineering vs true strain.","answer":"Eng: ΔL/L₀; True: ln(L/L₀).","tags":["true/eng"],"difficulty":"medium"},
+    {"id":"MECH-019","question":"Necking begins when?","answer":"At UTS; Considère criterion: dσ_true/dε_true = σ_true.","tags":["instability"],"difficulty":"hard"},
+    {"id":"MECH-020","question":"Hardenability vs hardness.","answer":"Hardenability: ability to form martensite upon quench depth; Hardness: resistance to indentation.","tags":["hardness"],"difficulty":"medium"},
+    {"id":"MECH-021","question":"Brinell hardness test basics.","answer":"Spherical indenter; reports HBW; large footprint; good for heterogeneous materials.","tags":["hardness"],"difficulty":"medium"},
+    {"id":"MECH-022","question":"Rockwell test uses what?","answer":"Depth of penetration under major/minor loads; various scales (HRA, HRB, HRC).","tags":["hardness"],"difficulty":"medium"},
+    {"id":"MECH-023","question":"Vickers hardness feature.","answer":"Diamond pyramid; HV; works on wide range; micro/macro loads.","tags":["hardness"],"difficulty":"medium"},
+    {"id":"MECH-024","question":"Knoop hardness used for?","answer":"Brittle/thin materials; elongated indent reduces cracking and measures small regions.","tags":["hardness"],"difficulty":"medium"},
+    {"id":"MECH-025","question":"Approximate σy from hardness?","answer":"Metals: σy ≈ HV/3 (very rough).","tags":["correlation"],"difficulty":"medium"},
+    {"id":"MECH-026","question":"Define strain hardening exponent n.","answer":"In true stress–strain: σ = K ε^n (plastic region).","tags":["constitutive"],"difficulty":"medium"},
+    {"id":"MECH-027","question":"What does higher n imply?","answer":"More uniform plastic deformation and greater necking resistance.","tags":["constitutive"],"difficulty":"medium"},
+    {"id":"MECH-028","question":"Strength coefficient K means?","answer":"Stress at ε_true=1 in power law σ=Kε^n (approx).","tags":["constitutive"],"difficulty":"medium"},
+    {"id":"MECH-029","question":"Elastic–plastic transition method common?","answer":"0.2% offset yield determination on σ–ε curve.","tags":["testing"],"difficulty":"easy"},
+    {"id":"MECH-030","question":"Define creep.","answer":"Time-dependent plastic deformation under constant stress, significant at high T.","tags":["creep"],"difficulty":"easy"},
+    {"id":"MECH-031","question":"Creep stages.","answer":"Primary (decelerating), secondary (steady-state), tertiary (accelerating to rupture).","tags":["creep"],"difficulty":"medium"},
+    {"id":"MECH-032","question":"Creep rate often modeled by?","answer":"Norton law: \u03B5\u0307 = A \u03C3^m exp(-Q/RT).","tags":["creep"],"difficulty":"hard"},
+    {"id":"MECH-033","question":"Define fatigue.","answer":"Failure under cyclic loading at stress < UTS due to crack initiation and growth.","tags":["fatigue"],"difficulty":"easy"},
+    {"id":"MECH-034","question":"What is S–N curve?","answer":"Stress (S) versus cycles to failure (N); Wöhler curve.","tags":["fatigue"],"difficulty":"easy"},
+    {"id":"MECH-035","question":"Endurance limit exists for which materials typically?","answer":"Many ferrous alloys and some Ti alloys show a fatigue limit; Al, Cu usually do not.","tags":["fatigue"],"difficulty":"medium"},
+    {"id":"MECH-036","question":"Mean stress effect on fatigue?","answer":"Higher tensile mean stress reduces fatigue life; compressive mean improves it.","tags":["fatigue"],"difficulty":"medium"},
+    {"id":"MECH-037","question":"Define fracture toughness K_IC.","answer":"Resistance to crack propagation in plane strain; critical stress intensity.","tags":["fracture"],"difficulty":"medium"},
+    {"id":"MECH-038","question":"Griffith criterion relates what?","answer":"Fracture to energy balance between surface energy and elastic strain energy release.","tags":["fracture"],"difficulty":"hard"},
+    {"id":"MECH-039","question":"Paris law describes what?","answer":"Fatigue crack growth rate: da/dN = C (ΔK)^m.","tags":["fatigue"],"difficulty":"hard"},
+    {"id":"MECH-040","question":"Charpy impact test measures?","answer":"Notch toughness via absorbed energy of a swinging pendulum.","tags":["impact"],"difficulty":"easy"},
+    {"id":"MECH-041","question":"DBTT significance.","answer":"Ductile-to-brittle transition temperature—below this, BCC steels become brittle.","tags":["impact"],"difficulty":"medium"},
+    {"id":"MECH-042","question":"Strengthening by grain refinement works because?","answer":"Grain boundaries block dislocation motion (Hall–Petch).","tags":["strengthening"],"difficulty":"easy"},
+    {"id":"MECH-043","question":"Solid-solution strengthening mechanism?","answer":"Solute atoms create local stress fields that impede dislocation motion.","tags":["strengthening"],"difficulty":"medium"},
+    {"id":"MECH-044","question":"Precipitation hardening basics.","answer":"Fine coherent precipitates resist dislocation motion by cutting or Orowan looping.","tags":["strengthening"],"difficulty":"medium"},
+    {"id":"MECH-045","question":"Work hardening cause?","answer":"Increased dislocation density and interactions increase strength.","tags":["strengthening"],"difficulty":"easy"},
+    {"id":"MECH-046","question":"Load types in testing?","answer":"Tension, compression, shear, bending, torsion.","tags":["testing"],"difficulty":"easy"},
+    {"id":"MECH-047","question":"True stress during uniform plastic deformation relates to?","answer":"σ_true = σ_eng (1+ε_eng).","tags":["true/eng"],"difficulty":"medium"},
+    {"id":"MECH-048","question":"True strain from engineering strain?","answer":"ε_true = ln(1+ε_eng).","tags":["true/eng"],"difficulty":"medium"},
+    {"id":"MECH-049","question":"Plane stress vs plane strain difference?","answer":"Plane stress: thin sheets (σz≈0); Plane strain: thick bodies (εz≈0).","tags":["states"],"difficulty":"hard"},
+    {"id":"MECH-050","question":"Von Mises criterion states?","answer":"Yielding when distortional energy reaches a critical value; √(3/2)||s|| = σy.","tags":["yielding"],"difficulty":"hard"},
+    {"id":"MECH-051","question":"Tresca criterion?","answer":"Yield when max shear stress reaches critical value; (σ1−σ3)/2 = k.","tags":["yielding"],"difficulty":"hard"},
+    {"id":"MECH-052","question":"Effect of temperature on strength of metals?","answer":"Strength decreases and ductility increases with higher temperature (below creep regime).","tags":["temperature"],"difficulty":"easy"},
+    {"id":"MECH-053","question":"Strain-rate sensitivity m.","answer":"\u03C3 ∝ \u03B5\u0307^m; higher m improves uniform elongation and reduces localization.","tags":["rate effects"],"difficulty":"hard"},
+    {"id":"MECH-054","question":"Bauschinger effect.","answer":"Yield stress in reverse loading is reduced after prior plastic deformation.","tags":["plasticity"],"difficulty":"hard"},
+    {"id":"MECH-055","question":"Lüders bands indicate what?","answer":"Discontinuous yielding due to dynamic strain aging or unlocking of dislocations.","tags":["plasticity"],"difficulty":"hard"},
+    {"id":"MECH-056","question":"Anisotropy in sheet metals measured by?","answer":"r-value (Lankford coefficient) from width/thickness strains.","tags":["sheet"],"difficulty":"hard"},
+    {"id":"MECH-057","question":"Forming limit diagram (FLD) shows?","answer":"Safe/unsafe regions of major vs minor strain for sheet forming.","tags":["sheet"],"difficulty":"hard"},
+    {"id":"MECH-058","question":"Hardness vs wear resistance relation?","answer":"Often correlated, but microstructure and environment also matter.","tags":["hardness"],"difficulty":"medium"},
+    {"id":"MECH-059","question":"Indentation size effect (ISE).","answer":"Measured hardness can increase as indent size decreases (micro/nano scales).","tags":["hardness"],"difficulty":"hard"},
+    {"id":"MECH-060","question":"Nanoindentation outputs?","answer":"Hardness and modulus from load–depth curve (Oliver–Pharr).","tags":["nano"],"difficulty":"hard"},
+    {"id":"MECH-061","question":"Define yield point phenomenon.","answer":"Distinct upper/lower yield stresses with plateau in mild steels.","tags":["plasticity"],"difficulty":"medium"},
+    {"id":"MECH-062","question":"Strain aging effect.","answer":"Interaction of solute atoms with dislocations—can raise yield, reduce ductility.","tags":["aging"],"difficulty":"hard"},
+    {"id":"MECH-063","question":"Crack tip plastic zone depends on?","answer":"σy and K; approximate size ~ (K/σy)²/2π (plane stress).","tags":["fracture"],"difficulty":"hard"},
+    {"id":"MECH-064","question":"R-curve behavior.","answer":"Resistance to crack growth increases with extension due to toughening mechanisms.","tags":["fracture"],"difficulty":"hard"},
+    {"id":"MECH-065","question":"Effect of grain size on toughness?","answer":"Finer grains generally improve both strength and low-temperature toughness.","tags":["microstructure"],"difficulty":"medium"},
+    {"id":"MECH-066","question":"Effect of inclusions on toughness?","answer":"Inclusions act as crack initiation sites, reducing toughness and fatigue life.","tags":["defects"],"difficulty":"medium"},
+    {"id":"MECH-067","question":"Shot peening improves fatigue how?","answer":"Introduces compressive residual stress at surface, delaying crack initiation.","tags":["fatigue"],"difficulty":"medium"},
+    {"id":"MECH-068","question":"Surface finish effect on fatigue.","answer":"Rough surfaces reduce fatigue life due to stress concentrations.","tags":["fatigue"],"difficulty":"easy"},
+    {"id":"MECH-069","question":"Notch sensitivity meaning.","answer":"Degree to which a material’s fatigue strength is reduced by a notch.","tags":["fatigue"],"difficulty":"hard"},
+    {"id":"MECH-070","question":"Goodman/Haigh diagrams used for?","answer":"Accounting for mean stress effects in fatigue design.","tags":["fatigue"],"difficulty":"hard"},
+    {"id":"MECH-071","question":"Creep in polymers called?","answer":"Viscoelastic creep—time-dependent deformation even at room temperature.","tags":["polymers"],"difficulty":"easy"},
+    {"id":"MECH-072","question":"Viscoelastic models examples.","answer":"Maxwell, Kelvin–Voigt, Standard Linear Solid (SLS).","tags":["viscoelastic"],"difficulty":"medium"},
+    {"id":"MECH-073","question":"Time–temperature superposition.","answer":"Shift factor collapses viscoelastic data onto a master curve.","tags":["viscoelastic"],"difficulty":"hard"},
+    {"id":"MECH-074","question":"Rubber elasticity depends mainly on?","answer":"Entropy changes of polymer chains; low E but large elastic strains.","tags":["polymers"],"difficulty":"medium"},
+    {"id":"MECH-075","question":"Effect of crosslinking in polymers.","answer":"Increases modulus and strength, reduces ductility and creep.","tags":["polymers"],"difficulty":"medium"},
+    {"id":"MECH-076","question":"Ceramics fail how under tension?","answer":"Brittle fracture from surface flaws; low K_IC; high compressive strength.","tags":["ceramics"],"difficulty":"medium"},
+    {"id":"MECH-077","question":"Fracture statistics for brittle solids use?","answer":"Weibull statistics due to flaw size distribution.","tags":["ceramics"],"difficulty":"hard"},
+    {"id":"MECH-078","question":"Composites rule of mixtures (E_longitudinal).","answer":"E_c ≈ V_f E_f + V_m E_m (iso-strain).","tags":["composites"],"difficulty":"medium"},
+    {"id":"MECH-079","question":"Transverse modulus in unidirectional lamina?","answer":"Lower; use inverse rule of mixtures (iso-stress).","tags":["composites"],"difficulty":"hard"},
+    {"id":"MECH-080","question":"Fiber aspect ratio importance.","answer":"Higher aspect ratio improves load transfer and strengthening.","tags":["composites"],"difficulty":"medium"},
+    {"id":"MECH-081","question":"Interface in composites does what?","answer":"Transfers load; too weak → debonding; too strong → brittle failure.","tags":["composites"],"difficulty":"medium"},
+    {"id":"MECH-082","question":"Thermal residual stresses in composites arise from?","answer":"CTE mismatch between fiber and matrix during cooling.","tags":["composites"],"difficulty":"hard"},
+    {"id":"MECH-083","question":"Effect of SFE on deformation mode.","answer":"Low SFE → twinning/planar slip; high SFE → cross-slip and wavy slip.","tags":["crystal plasticity"],"difficulty":"hard"},
+    {"id":"MECH-084","question":"Twinning contributes to what?","answer":"Strain accommodation and work hardening, especially at low T/high rate.","tags":["crystal plasticity"],"difficulty":"hard"},
+    {"id":"MECH-085","question":"Bake hardening steels rely on?","answer":"Strain aging during paint-bake to raise yield after forming.","tags":["steels"],"difficulty":"hard"},
+    {"id":"MECH-086","question":"TRIP effect means?","answer":"Transformation-Induced Plasticity—retained austenite → martensite during straining increases work hardening.","tags":["steels"],"difficulty":"hard"},
+    {"id":"MECH-087","question":"Dual-phase steels combine what?","answer":"Soft ferrite matrix with hard martensite islands → high strength/ductility.","tags":["steels"],"difficulty":"medium"},
+    {"id":"MECH-088","question":"Effect of temperature on DBTT.","answer":"Reducing grain size, adding Ni, or purifying lowers DBTT.","tags":["impact"],"difficulty":"hard"},
+    {"id":"MECH-089","question":"Plane stress fracture surfaces show?","answer":"Ductile dimples; more tearing; higher apparent toughness.","tags":["fracture"],"difficulty":"hard"},
+    {"id":"MECH-090","question":"Plane strain fracture surfaces show?","answer":"Cleavage/facet features; lower K_IC; thickness constrained.","tags":["fracture"],"difficulty":"hard"},
+    {"id":"MECH-091","question":"Crack closure in fatigue.","answer":"Contact of crack faces reduces effective ΔK, slowing growth.","tags":["fatigue"],"difficulty":"hard"},
+    {"id":"MECH-092","question":"Shot peening vs case hardening.","answer":"Peening induces compressive stress; case hardening increases surface hardness and strength.","tags":["surface"],"difficulty":"medium"},
+    {"id":"MECH-093","question":"Role of residual stresses.","answer":"Can aid or harm: compressive improves fatigue; tensile can cause cracking/warping.","tags":["residual"],"difficulty":"medium"},
+    {"id":"MECH-094","question":"Why sub-size tensile specimens?","answer":"Limited material or product geometry; must correct gauge and area for properties.","tags":["testing"],"difficulty":"easy"},
+    {"id":"MECH-095","question":"Why use extensometers?","answer":"Accurate strain measurement in elastic region (small strains).","tags":["testing"],"difficulty":"easy"},
+    {"id":"MECH-096","question":"Digital image correlation (DIC) measures?","answer":"Full-field strain/displacement using pattern tracking.","tags":["testing"],"difficulty":"hard"},
+    {"id":"MECH-097","question":"Microstructural source of yield in crystals.","answer":"Dislocation motion on active slip systems.","tags":["mechanisms"],"difficulty":"medium"},
+    {"id":"MECH-098","question":"Orowan equation essence.","answer":"Plastic strain rate ∝ dislocation density × velocity × Burgers vector.","tags":["dislocations"],"difficulty":"hard"},
+    {"id":"MECH-099","question":"Hall–Petch relationship form.","answer":"σy = σ₀ + k_y d^(−1/2).","tags":["strengthening"],"difficulty":"medium"},
+    {"id":"MECH-100","question":"Trade-off: strength vs ductility—why?","answer":"Mechanisms that impede dislocations raise strength but limit plasticity.","tags":["design"],"difficulty":"easy"}
+  ]
+</script>
+<script type="application/json" id="topic-electromagnetics">
+  [
+    {"id":"EM-001","question":"What is electromagnetics?","answer":"The study of electric and magnetic fields and their interactions with matter.","tags":["intro"],"difficulty":"easy"},
+    {"id":"EM-002","question":"What does Coulomb’s law state?","answer":"The electrostatic force is proportional to the product of charges and inversely proportional to the square of distance.","tags":["laws"],"difficulty":"easy"},
+    {"id":"EM-003","question":"What is Gauss’s law?","answer":"The total electric flux through a closed surface equals the enclosed charge divided by ε₀.","tags":["maxwell","electrostatics"],"difficulty":"medium"},
+    {"id":"EM-004","question":"What is the permittivity of free space (ε₀)?","answer":"8.85 × 10⁻¹² F/m.","tags":["constants"],"difficulty":"easy"},
+    {"id":"EM-005","question":"What is electric flux density (D)?","answer":"D = εE, relates electric field to permittivity.","tags":["electrostatics"],"difficulty":"medium"},
+    {"id":"EM-006","question":"What is Biot–Savart law?","answer":"Describes magnetic field produced by a current element.","tags":["laws","magnetostatics"],"difficulty":"medium"},
+    {"id":"EM-007","question":"What is Ampere’s law?","answer":"Line integral of magnetic field around a closed loop equals μ₀ times enclosed current.","tags":["maxwell","magnetostatics"],"difficulty":"medium"},
+    {"id":"EM-008","question":"What is permeability of free space (μ₀)?","answer":"4π × 10⁻⁷ H/m.","tags":["constants"],"difficulty":"easy"},
+    {"id":"EM-009","question":"What is Faraday’s law of induction?","answer":"Induced EMF equals negative rate of change of magnetic flux.","tags":["maxwell","induction"],"difficulty":"medium"},
+    {"id":"EM-010","question":"What is Lenz’s law?","answer":"The direction of induced EMF opposes the change in flux that produced it.","tags":["induction"],"difficulty":"easy"},
+    {"id":"EM-011","question":"What is displacement current?","answer":"A term added by Maxwell to Ampere’s law, accounts for time-varying electric fields.","tags":["maxwell"],"difficulty":"hard"},
+    {"id":"EM-012","question":"What is the speed of light in free space?","answer":"c = 1/√(μ₀ε₀) ≈ 3 × 10⁸ m/s.","tags":["constants"],"difficulty":"easy"},
+    {"id":"EM-013","question":"What are Maxwell’s four equations?","answer":"Gauss’s law (E), Gauss’s law (B), Faraday’s law, Ampere-Maxwell law.","tags":["maxwell"],"difficulty":"medium"},
+    {"id":"EM-014","question":"What is Poynting vector?","answer":"Represents power flow density: S = E × H.","tags":["energy"],"difficulty":"medium"},
+    {"id":"EM-015","question":"What is wave impedance of free space?","answer":"η₀ ≈ 377 Ω.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-016","question":"What is skin effect?","answer":"AC current crowds near conductor surface at high frequency, reducing effective area.","tags":["ac","conductors"],"difficulty":"medium"},
+    {"id":"EM-017","question":"What is polarization of a wave?","answer":"The orientation of the electric field vector in space.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-018","question":"Difference between TEM, TE, and TM modes?","answer":"TEM: both E and H transverse; TE: no longitudinal E; TM: no longitudinal H.","tags":["waveguides"],"difficulty":"hard"},
+    {"id":"EM-019","question":"What is a waveguide cutoff frequency?","answer":"The lowest frequency at which a waveguide supports propagation.","tags":["waveguides"],"difficulty":"medium"},
+    {"id":"EM-020","question":"What is Snell’s law?","answer":"n₁sinθ₁ = n₂sinθ₂, describes refraction of waves between media.","tags":["waves","optics"],"difficulty":"easy"},
+    {"id":"EM-021","question":"What is intrinsic impedance of a medium?","answer":"η = √(μ/ε).","tags":["waves"],"difficulty":"medium"},
+    {"id":"EM-022","question":"What is reflection coefficient?","answer":"Γ = (Z₂ − Z₁)/(Z₂ + Z₁).","tags":["transmission"],"difficulty":"medium"},
+    {"id":"EM-023","question":"What is standing wave ratio (SWR)?","answer":"SWR = (1+|Γ|)/(1−|Γ|), measures mismatch.","tags":["transmission"],"difficulty":"medium"},
+    {"id":"EM-024","question":"What is antenna directivity?","answer":"Ratio of radiation intensity in a given direction to average intensity.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-025","question":"What is dipole antenna radiation pattern?","answer":"Figure-eight pattern in plane perpendicular to antenna.","tags":["antennas"],"difficulty":"easy"},
+    {"id":"EM-026","question":"What is antenna gain?","answer":"Directivity multiplied by efficiency.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-027","question":"What is radiation resistance?","answer":"Equivalent resistance that accounts for power radiated by an antenna.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-028","question":"What is near-field vs far-field region?","answer":"Near-field: reactive, close to source. Far-field: radiating, E and H orthogonal and in phase.","tags":["fields"],"difficulty":"medium"},
+    {"id":"EM-029","question":"What is reciprocity theorem in antennas?","answer":"Transmit and receive characteristics of an antenna are identical.","tags":["antennas"],"difficulty":"easy"},
+    {"id":"EM-030","question":"What is effective aperture of an antenna?","answer":"Area that relates received power to incident power density: Aₑ = λ²G/(4π).","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-031","question":"What is characteristic impedance of a transmission line?","answer":"Z₀ = √((R+jωL)/(G+jωC)).","tags":["transmission"],"difficulty":"hard"},
+    {"id":"EM-032","question":"What is propagation constant?","answer":"γ = α + jβ, describes attenuation (α) and phase (β).","tags":["transmission"],"difficulty":"medium"},
+    {"id":"EM-033","question":"What is group velocity?","answer":"Velocity of energy or information: v_g = dω/dβ.","tags":["waves"],"difficulty":"medium"},
+    {"id":"EM-034","question":"What is phase velocity?","answer":"v_p = ω/β, velocity of a constant phase point.","tags":["waves"],"difficulty":"medium"},
+    {"id":"EM-035","question":"What is Brewster’s angle?","answer":"Angle at which reflection of polarized wave vanishes.","tags":["optics"],"difficulty":"medium"},
+    {"id":"EM-036","question":"What is total internal reflection?","answer":"When incident angle exceeds critical angle, wave reflects completely.","tags":["optics"],"difficulty":"easy"},
+    {"id":"EM-037","question":"What is impedance matching?","answer":"Adjusting load impedance to equal source or line impedance for max power transfer.","tags":["transmission"],"difficulty":"easy"},
+    {"id":"EM-038","question":"What is quarter-wave transformer?","answer":"A λ/4 line used for impedance matching between two impedances.","tags":["transmission"],"difficulty":"medium"},
+    {"id":"EM-039","question":"What is Smith chart used for?","answer":"Graphical tool for solving transmission line and matching problems.","tags":["tools"],"difficulty":"medium"},
+    {"id":"EM-040","question":"What is VSWR=1 condition?","answer":"Perfect match, no reflections.","tags":["transmission"],"difficulty":"easy"},
+    {"id":"EM-041","question":"What is coaxial cable mode?","answer":"Supports only TEM mode.","tags":["transmission"],"difficulty":"easy"},
+    {"id":"EM-042","question":"What is wave impedance in a waveguide?","answer":"Ratio of transverse E to H, differs from free space impedance.","tags":["waveguides"],"difficulty":"hard"},
+    {"id":"EM-043","question":"What is cutoff wavelength in rectangular waveguide TE₁₀ mode?","answer":"λc = 2a, where a is the wider dimension.","tags":["waveguides"],"difficulty":"medium"},
+    {"id":"EM-044","question":"What is dominant mode in rectangular waveguide?","answer":"TE₁₀ mode.","tags":["waveguides"],"difficulty":"easy"},
+    {"id":"EM-045","question":"What is circular waveguide dominant mode?","answer":"TE₁₁ mode.","tags":["waveguides"],"difficulty":"medium"},
+    {"id":"EM-046","question":"What is attenuation in transmission lines caused by?","answer":"Conductor losses, dielectric losses, and radiation.","tags":["transmission"],"difficulty":"medium"},
+    {"id":"EM-047","question":"What is power density of a wave?","answer":"Poynting vector magnitude: |S| = |E||H|.","tags":["energy"],"difficulty":"easy"},
+    {"id":"EM-048","question":"What is radiation pattern lobes?","answer":"Main lobe (strongest), side lobes (weaker), back lobe (opposite direction).","tags":["antennas"],"difficulty":"easy"},
+    {"id":"EM-049","question":"What is half-power beamwidth (HPBW)?","answer":"Angular width between points where radiation drops to half power (-3 dB).","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-050","question":"What is polarization mismatch loss?","answer":"Loss when transmit and receive antenna polarizations are not aligned.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-051","question":"What is radiation efficiency of an antenna?","answer":"Ratio of power radiated to total input power.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-052","question":"What is effective isotropic radiated power (EIRP)?","answer":"Power radiated by an antenna compared to isotropic source: EIRP = Pt × G.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-053","question":"What is diffraction of waves?","answer":"Bending of waves around obstacles or through apertures.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-054","question":"What is interference of waves?","answer":"Superposition of waves leading to constructive or destructive effects.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-055","question":"What is polarization diversity?","answer":"Using multiple polarizations to improve signal reliability.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-056","question":"What is dielectric loss tangent?","answer":"tanδ = ε''/ε', ratio of imaginary to real permittivity.","tags":["materials"],"difficulty":"hard"},
+    {"id":"EM-057","question":"What is ferrite material used for?","answer":"Non-conductive magnetic material used in isolators and circulators.","tags":["materials"],"difficulty":"medium"},
+    {"id":"EM-058","question":"What is Faraday rotation?","answer":"Rotation of polarization in a magnetic field.","tags":["effects"],"difficulty":"medium"},
+    {"id":"EM-059","question":"What is eddy current loss?","answer":"Energy loss due to induced currents in conductive materials.","tags":["losses"],"difficulty":"medium"},
+    {"id":"EM-060","question":"What is hysteresis loss?","answer":"Energy lost in magnetic materials due to magnetization reversal.","tags":["losses"],"difficulty":"medium"},
+    {"id":"EM-061","question":"What is dielectric breakdown?","answer":"Failure of insulating material when electric field exceeds critical value.","tags":["materials"],"difficulty":"easy"},
+    {"id":"EM-062","question":"What is corona discharge?","answer":"Ionization of air near high-voltage conductors producing light and noise.","tags":["hv","phenomena"],"difficulty":"medium"},
+    {"id":"EM-063","question":"What is wave reflection phase reversal?","answer":"Occurs when reflecting from higher impedance medium (open circuit).","tags":["waves"],"difficulty":"medium"},
+    {"id":"EM-064","question":"What is constructive interference condition?","answer":"Path difference = mλ.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-065","question":"What is destructive interference condition?","answer":"Path difference = (m+½)λ.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-066","question":"What is resonance in RLC circuit?","answer":"Occurs when inductive reactance = capacitive reactance, XL = XC.","tags":["circuits"],"difficulty":"easy"},
+    {"id":"EM-067","question":"What is quality factor (Q)?","answer":"Q = ω₀L/R or 1/R√(L/C), measures sharpness of resonance.","tags":["circuits"],"difficulty":"medium"},
+    {"id":"EM-068","question":"What is bandwidth in resonance circuits?","answer":"Range of frequencies where power > half maximum, BW = f₀/Q.","tags":["circuits"],"difficulty":"medium"},
+    {"id":"EM-069","question":"What is impedance of capacitor?","answer":"Zc = 1/(jωC).","tags":["circuits"],"difficulty":"easy"},
+    {"id":"EM-070","question":"What is impedance of inductor?","answer":"Zl = jωL.","tags":["circuits"],"difficulty":"easy"},
+    {"id":"EM-071","question":"What is radiation pressure?","answer":"Force exerted by EM waves on surfaces.","tags":["waves","effects"],"difficulty":"hard"},
+    {"id":"EM-072","question":"What is electromagnetic shielding?","answer":"Blocking EM fields using conductive or magnetic materials.","tags":["applications"],"difficulty":"easy"},
+    {"id":"EM-073","question":"What is slot antenna?","answer":"Antenna made by cutting a slot in a metal surface, complementary to dipole.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-074","question":"What is log-periodic antenna used for?","answer":"Wideband frequency coverage.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-075","question":"What is Yagi-Uda antenna?","answer":"Directional antenna with driven, reflector, and director elements.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-051","question":"What is radiation efficiency of an antenna?","answer":"Ratio of power radiated to total input power.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-052","question":"What is effective isotropic radiated power (EIRP)?","answer":"Power radiated by an antenna compared to isotropic source: EIRP = Pt × G.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-053","question":"What is diffraction of waves?","answer":"Bending of waves around obstacles or through apertures.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-054","question":"What is interference of waves?","answer":"Superposition of waves leading to constructive or destructive effects.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-055","question":"What is polarization diversity?","answer":"Using multiple polarizations to improve signal reliability.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-056","question":"What is dielectric loss tangent?","answer":"tanδ = ε''/ε', ratio of imaginary to real permittivity.","tags":["materials"],"difficulty":"hard"},
+    {"id":"EM-057","question":"What is ferrite material used for?","answer":"Non-conductive magnetic material used in isolators and circulators.","tags":["materials"],"difficulty":"medium"},
+    {"id":"EM-058","question":"What is Faraday rotation?","answer":"Rotation of polarization in a magnetic field.","tags":["effects"],"difficulty":"medium"},
+    {"id":"EM-059","question":"What is eddy current loss?","answer":"Energy loss due to induced currents in conductive materials.","tags":["losses"],"difficulty":"medium"},
+    {"id":"EM-060","question":"What is hysteresis loss?","answer":"Energy lost in magnetic materials due to magnetization reversal.","tags":["losses"],"difficulty":"medium"},
+    {"id":"EM-061","question":"What is dielectric breakdown?","answer":"Failure of insulating material when electric field exceeds critical value.","tags":["materials"],"difficulty":"easy"},
+    {"id":"EM-062","question":"What is corona discharge?","answer":"Ionization of air near high-voltage conductors producing light and noise.","tags":["hv","phenomena"],"difficulty":"medium"},
+    {"id":"EM-063","question":"What is wave reflection phase reversal?","answer":"Occurs when reflecting from higher impedance medium (open circuit).","tags":["waves"],"difficulty":"medium"},
+    {"id":"EM-064","question":"What is constructive interference condition?","answer":"Path difference = mλ.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-065","question":"What is destructive interference condition?","answer":"Path difference = (m+½)λ.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-066","question":"What is resonance in RLC circuit?","answer":"Occurs when inductive reactance = capacitive reactance, XL = XC.","tags":["circuits"],"difficulty":"easy"},
+    {"id":"EM-067","question":"What is quality factor (Q)?","answer":"Q = ω₀L/R or 1/R√(L/C), measures sharpness of resonance.","tags":["circuits"],"difficulty":"medium"},
+    {"id":"EM-068","question":"What is bandwidth in resonance circuits?","answer":"Range of frequencies where power > half maximum, BW = f₀/Q.","tags":["circuits"],"difficulty":"medium"},
+    {"id":"EM-069","question":"What is impedance of capacitor?","answer":"Zc = 1/(jωC).","tags":["circuits"],"difficulty":"easy"},
+    {"id":"EM-070","question":"What is impedance of inductor?","answer":"Zl = jωL.","tags":["circuits"],"difficulty":"easy"},
+    {"id":"EM-071","question":"What is radiation pressure?","answer":"Force exerted by EM waves on surfaces.","tags":["waves","effects"],"difficulty":"hard"},
+    {"id":"EM-072","question":"What is electromagnetic shielding?","answer":"Blocking EM fields using conductive or magnetic materials.","tags":["applications"],"difficulty":"easy"},
+    {"id":"EM-073","question":"What is slot antenna?","answer":"Antenna made by cutting a slot in a metal surface, complementary to dipole.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-074","question":"What is log-periodic antenna used for?","answer":"Wideband frequency coverage.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-075","question":"What is Yagi-Uda antenna?","answer":"Directional antenna with driven, reflector, and director elements.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-076","question":"What is parabolic reflector antenna advantage?","answer":"High gain and narrow beamwidth.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-077","question":"What is horn antenna?","answer":"A flared waveguide used for high-gain, broadband radiation.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-078","question":"What is patch (microstrip) antenna?","answer":"Planar antenna, compact, easy to fabricate, used in mobile devices.","tags":["antennas"],"difficulty":"easy"},
+    {"id":"EM-079","question":"What is phased array antenna?","answer":"Antenna array with adjustable phase shifters for beam steering.","tags":["antennas"],"difficulty":"hard"},
+    {"id":"EM-080","question":"What is dielectric resonator antenna?","answer":"Uses dielectric materials as resonators for radiation.","tags":["antennas"],"difficulty":"hard"},
+    {"id":"EM-081","question":"What is antenna aperture efficiency?","answer":"ηₐ = Aₑ/A_phys, ratio of effective to physical area.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-082","question":"What is Maxwell–Boltzmann distribution relevance in EM?","answer":"Describes electron velocity distribution in plasmas.","tags":["plasma"],"difficulty":"hard"},
+    {"id":"EM-083","question":"What is plasma frequency?","answer":"Natural oscillation frequency of electrons in plasma: ωp = √(Ne²/ε₀m).","tags":["plasma"],"difficulty":"hard"},
+    {"id":"EM-084","question":"What is skin depth in conductors?","answer":"δ = √(2/ωμσ), depth where current density drops to 1/e.","tags":["conductors"],"difficulty":"medium"},
+    {"id":"EM-085","question":"What is displacement current?","answer":"Time-varying electric field term in Maxwell–Ampère’s law.","tags":["maxwell"],"difficulty":"medium"},
+    {"id":"EM-086","question":"What is retarded potential?","answer":"Electromagnetic potentials accounting for finite propagation speed of fields.","tags":["fields"],"difficulty":"hard"},
+    {"id":"EM-087","question":"What is Huygens’ principle?","answer":"Each point on a wavefront acts as a secondary spherical source.","tags":["waves"],"difficulty":"medium"},
+    {"id":"EM-088","question":"What is radiation reaction?","answer":"Self-force on accelerating charges due to their own radiation.","tags":["fields"],"difficulty":"hard"},
+    {"id":"EM-089","question":"What is blackbody radiation spectrum law?","answer":"Planck’s law describes EM radiation vs wavelength and temperature.","tags":["radiation"],"difficulty":"medium"},
+    {"id":"EM-090","question":"What is Stefan–Boltzmann law?","answer":"Total power radiated ∝ T⁴.","tags":["radiation"],"difficulty":"easy"},
+    {"id":"EM-091","question":"What is Wien’s displacement law?","answer":"λmax × T = constant (≈ 2898 μm·K).","tags":["radiation"],"difficulty":"easy"},
+    {"id":"EM-092","question":"What is polarization of electromagnetic wave?","answer":"Orientation of electric field vector with respect to reference axis.","tags":["waves"],"difficulty":"easy"},
+    {"id":"EM-093","question":"What is circular polarization?","answer":"Electric field rotates with constant magnitude, forming a helix.","tags":["waves"],"difficulty":"medium"},
+    {"id":"EM-094","question":"What is elliptic polarization?","answer":"General case of polarization: E tip traces an ellipse.","tags":["waves"],"difficulty":"medium"},
+    {"id":"EM-095","question":"What is TE vs TM mode?","answer":"TE: no electric field along propagation. TM: no magnetic field along propagation.","tags":["waveguides"],"difficulty":"medium"},
+    {"id":"EM-096","question":"What is TEM mode?","answer":"Both E and H fields transverse to propagation, as in coaxial line.","tags":["transmission"],"difficulty":"easy"},
+    {"id":"EM-097","question":"What is antenna bandwidth?","answer":"Frequency range over which antenna performs acceptably.","tags":["antennas"],"difficulty":"medium"},
+    {"id":"EM-098","question":"What is Friis transmission equation?","answer":"Pr = PtGtGr(λ/(4πR))².","tags":["link"],"difficulty":"hard"},
+    {"id":"EM-099","question":"What is radar cross section (RCS)?","answer":"Measure of detectability of an object to radar, σ = scattered power density / incident power density.","tags":["radar"],"difficulty":"hard"},
+    {"id":"EM-100","question":"What is SAR (specific absorption rate)?","answer":"Rate at which body tissue absorbs EM energy, W/kg.","tags":["safety"],"difficulty":"medium"}
+  ]
+</script>
+
+<script type="application/json" id="topic-electronics">
+  [
+    {"id":"ELEC-001","question":"What is Ohm’s law?","answer":"V = I * R.","tags":["basics"],"difficulty":"easy"},
+    {"id":"ELEC-002","question":"Unit of electric current?","answer":"Ampere (A).","tags":["units"],"difficulty":"easy"},
+    {"id":"ELEC-003","question":"Define electric power.","answer":"P = V * I (watts).","tags":["basics"],"difficulty":"easy"},
+    {"id":"ELEC-004","question":"Charge of an electron?","answer":"-1.602 × 10^-19 C.","tags":["constants"],"difficulty":"easy"},
+    {"id":"ELEC-005","question":"Kirchhoff’s Current Law (KCL).","answer":"Sum of currents entering a node equals sum leaving.","tags":["circuits"],"difficulty":"easy"},
+    {"id":"ELEC-006","question":"Kirchhoff’s Voltage Law (KVL).","answer":"Sum of voltages around a closed loop is zero.","tags":["circuits"],"difficulty":"easy"},
+    {"id":"ELEC-007","question":"Define resistance.","answer":"Opposition to current flow; measured in ohms.","tags":["resistance"],"difficulty":"easy"},
+    {"id":"ELEC-008","question":"Define conductance.","answer":"Reciprocal of resistance (S = 1/R).","tags":["resistance"],"difficulty":"easy"},
+    {"id":"ELEC-009","question":"What is capacitance?","answer":"Ability to store charge per unit voltage (C = Q/V).","tags":["capacitors"],"difficulty":"easy"},
+    {"id":"ELEC-010","question":"Unit of capacitance?","answer":"Farad (F).","tags":["capacitors"],"difficulty":"easy"},
+
+    {"id":"ELEC-011","question":"What is inductance?","answer":"Property of coil to oppose change in current (L).","tags":["inductors"],"difficulty":"easy"},
+    {"id":"ELEC-012","question":"Unit of inductance?","answer":"Henry (H).","tags":["inductors"],"difficulty":"easy"},
+    {"id":"ELEC-013","question":"Ideal capacitor current equation.","answer":"i = C * dv/dt.","tags":["capacitors"],"difficulty":"medium"},
+    {"id":"ELEC-014","question":"Ideal inductor voltage equation.","answer":"v = L * di/dt.","tags":["inductors"],"difficulty":"medium"},
+    {"id":"ELEC-015","question":"Define impedance.","answer":"Generalized opposition to AC; Z = R + jX.","tags":["ac circuits"],"difficulty":"medium"},
+    {"id":"ELEC-016","question":"Unit of impedance?","answer":"Ohms (Ω).","tags":["ac circuits"],"difficulty":"easy"},
+    {"id":"ELEC-017","question":"Resonance in RLC circuit occurs when?","answer":"When XL = XC (inductive reactance = capacitive reactance).","tags":["resonance"],"difficulty":"medium"},
+    {"id":"ELEC-018","question":"Q-factor definition.","answer":"Quality factor = resonant frequency / bandwidth.","tags":["resonance"],"difficulty":"medium"},
+    {"id":"ELEC-019","question":"What is cutoff frequency of RC low-pass?","answer":"fc = 1 / (2πRC).","tags":["filters"],"difficulty":"medium"},
+    {"id":"ELEC-020","question":"Bode plot shows?","answer":"Magnitude (dB) and phase vs frequency.","tags":["filters"],"difficulty":"medium"},
+
+    {"id":"ELEC-021","question":"Diode function?","answer":"Allows current flow in one direction.","tags":["diodes"],"difficulty":"easy"},
+    {"id":"ELEC-022","question":"Threshold voltage of Si diode?","answer":"~0.7 V.","tags":["diodes"],"difficulty":"easy"},
+    {"id":"ELEC-023","question":"LED stands for?","answer":"Light Emitting Diode.","tags":["diodes"],"difficulty":"easy"},
+    {"id":"ELEC-024","question":"Zener diode use?","answer":"Voltage regulation by breakdown behavior.","tags":["diodes"],"difficulty":"easy"},
+    {"id":"ELEC-025","question":"What is rectification?","answer":"Conversion of AC to DC using diodes.","tags":["rectifiers"],"difficulty":"easy"},
+    {"id":"ELEC-026","question":"Half-wave rectifier efficiency?","answer":"40.6%.","tags":["rectifiers"],"difficulty":"medium"},
+    {"id":"ELEC-027","question":"Full-wave rectifier efficiency?","answer":"81.2%.","tags":["rectifiers"],"difficulty":"medium"},
+    {"id":"ELEC-028","question":"Filter capacitor in rectifier does?","answer":"Reduces ripple in DC output.","tags":["rectifiers"],"difficulty":"easy"},
+    {"id":"ELEC-029","question":"Bridge rectifier uses how many diodes?","answer":"4 diodes.","tags":["rectifiers"],"difficulty":"easy"},
+    {"id":"ELEC-030","question":"PN junction depletion region is formed by?","answer":"Diffusion of carriers creating immobile ions.","tags":["semiconductors"],"difficulty":"medium"},
+
+    {"id":"ELEC-031","question":"BJT stands for?","answer":"Bipolar Junction Transistor.","tags":["bjts"],"difficulty":"easy"},
+    {"id":"ELEC-032","question":"Modes of BJT operation?","answer":"Cutoff, active, saturation.","tags":["bjts"],"difficulty":"easy"},
+    {"id":"ELEC-033","question":"Define beta (β) of BJT.","answer":"Current gain = IC / IB.","tags":["bjts"],"difficulty":"easy"},
+    {"id":"ELEC-034","question":"BJT saturation means?","answer":"Both junctions forward biased; max current flow.","tags":["bjts"],"difficulty":"medium"},
+    {"id":"ELEC-035","question":"FET stands for?","answer":"Field Effect Transistor.","tags":["fets"],"difficulty":"easy"},
+    {"id":"ELEC-036","question":"JFET channel controlled by?","answer":"Reverse-biased gate junction controls channel width.","tags":["fets"],"difficulty":"medium"},
+    {"id":"ELEC-037","question":"MOSFET full form?","answer":"Metal Oxide Semiconductor Field Effect Transistor.","tags":["fets"],"difficulty":"easy"},
+    {"id":"ELEC-038","question":"Enhancement MOSFET requires what to conduct?","answer":"Gate voltage above threshold.","tags":["fets"],"difficulty":"medium"},
+    {"id":"ELEC-039","question":"CMOS means?","answer":"Complementary MOS (pMOS + nMOS).","tags":["logic"],"difficulty":"easy"},
+    {"id":"ELEC-040","question":"IGBT combines what?","answer":"MOSFET gate with BJT conduction path.","tags":["devices"],"difficulty":"medium"},
+
+    {"id":"ELEC-041","question":"Op-amp ideal properties?","answer":"Infinite gain, infinite input impedance, zero output impedance.","tags":["opamps"],"difficulty":"medium"},
+    {"id":"ELEC-042","question":"Op-amp inverting gain formula?","answer":"Gain = -Rf / Rin.","tags":["opamps"],"difficulty":"medium"},
+    {"id":"ELEC-043","question":"Op-amp non-inverting gain formula?","answer":"Gain = 1 + (Rf / Rin).","tags":["opamps"],"difficulty":"medium"},
+    {"id":"ELEC-044","question":"Integrator op-amp output?","answer":"Vout = -(1/RC) ∫ Vin dt.","tags":["opamps"],"difficulty":"hard"},
+    {"id":"ELEC-045","question":"Differentiator op-amp output?","answer":"Vout = -RC * dVin/dt.","tags":["opamps"],"difficulty":"hard"},
+    {"id":"ELEC-046","question":"Comparator op-amp use?","answer":"Outputs high/low depending on input difference.","tags":["opamps"],"difficulty":"easy"},
+    {"id":"ELEC-047","question":"Common op-amp IC example?","answer":"741 op-amp.","tags":["opamps"],"difficulty":"easy"},
+    {"id":"ELEC-048","question":"Op-amp slew rate defines?","answer":"Maximum rate of output voltage change (V/µs).","tags":["opamps"],"difficulty":"medium"},
+    {"id":"ELEC-049","question":"CMRR meaning in op-amps?","answer":"Common Mode Rejection Ratio.","tags":["opamps"],"difficulty":"medium"},
+    {"id":"ELEC-050","question":"Unity-gain buffer also called?","answer":"Voltage follower.","tags":["opamps"],"difficulty":"easy"},
+
+    {"id":"ELEC-051","question":"Logic gate: AND outputs 1 when?","answer":"Both inputs = 1.","tags":["logic"],"difficulty":"easy"},
+    {"id":"ELEC-052","question":"Logic gate: OR outputs 1 when?","answer":"At least one input = 1.","tags":["logic"],"difficulty":"easy"},
+    {"id":"ELEC-053","question":"Logic gate: NOT outputs?","answer":"Inverts the input.","tags":["logic"],"difficulty":"easy"},
+    {"id":"ELEC-054","question":"NAND gate output?","answer":"Opposite of AND.","tags":["logic"],"difficulty":"easy"},
+    {"id":"ELEC-055","question":"NOR gate output?","answer":"Opposite of OR.","tags":["logic"],"difficulty":"easy"},
+    {"id":"ELEC-056","question":"XOR gate output?","answer":"1 when inputs are different.","tags":["logic"],"difficulty":"easy"},
+    {"id":"ELEC-057","question":"XNOR gate output?","answer":"1 when inputs are same.","tags":["logic"],"difficulty":"easy"},
+    {"id":"ELEC-058","question":"Half-adder uses which gates?","answer":"XOR for sum, AND for carry.","tags":["logic"],"difficulty":"medium"},
+    {"id":"ELEC-059","question":"Full-adder inputs?","answer":"A, B, Carry-in.","tags":["logic"],"difficulty":"medium"},
+    {"id":"ELEC-060","question":"SR latch made of?","answer":"Two cross-coupled NOR or NAND gates.","tags":["latches"],"difficulty":"medium"},
+
+    {"id":"ELEC-061","question":"Flip-flop is?","answer":"A bistable memory element.","tags":["ff"],"difficulty":"easy"},
+    {"id":"ELEC-062","question":"JK flip-flop avoids?","answer":"Invalid state of SR latch.","tags":["ff"],"difficulty":"medium"},
+    {"id":"ELEC-063","question":"D flip-flop captures what?","answer":"Captures input D at clock edge.","tags":["ff"],"difficulty":"easy"},
+    {"id":"ELEC-064","question":"T flip-flop toggles when?","answer":"T = 1 at clock edge.","tags":["ff"],"difficulty":"medium"},
+    {"id":"ELEC-065","question":"Register is?","answer":"Group of flip-flops storing multi-bit word.","tags":["registers"],"difficulty":"easy"},
+    {"id":"ELEC-066","question":"Counter is?","answer":"Sequential circuit that counts clock pulses.","tags":["counters"],"difficulty":"easy"},
+    {"id":"ELEC-067","question":"Synchronous counter updates how?","answer":"All flip-flops clocked simultaneously.","tags":["counters"],"difficulty":"medium"},
+    {"id":"ELEC-068","question":"Asynchronous counter updates how?","answer":"Ripple effect, flip-flops trigger next.","tags":["counters"],"difficulty":"medium"},
+    {"id":"ELEC-069","question":"Decoder use?","answer":"Converts binary input into one-hot outputs.","tags":["decoders"],"difficulty":"medium"},
+    {"id":"ELEC-070","question":"Multiplexer use?","answer":"Selects one input to pass to output.","tags":["mux"],"difficulty":"medium"},
+
+    {"id":"ELEC-071","question":"Demultiplexer use?","answer":"Routes single input to one of many outputs.","tags":["mux"],"difficulty":"medium"},
+    {"id":"ELEC-072","question":"ADC stands for?","answer":"Analog to Digital Converter.","tags":["adc"],"difficulty":"easy"},
+    {"id":"ELEC-073","question":"DAC stands for?","answer":"Digital to Analog Converter.","tags":["dac"],"difficulty":"easy"},
+    {"id":"ELEC-074","question":"Nyquist theorem states?","answer":"Sampling frequency >= 2x signal bandwidth.","tags":["sampling"],"difficulty":"medium"},
+    {"id":"ELEC-075","question":"Aliasing occurs when?","answer":"Sampling below Nyquist rate.","tags":["sampling"],"difficulty":"medium"},
+    {"id":"ELEC-076","question":"Flash ADC speed?","answer":"Very fast, uses parallel comparators.","tags":["adc"],"difficulty":"hard"},
+    {"id":"ELEC-077","question":"Successive approximation ADC feature?","answer":"Balanced speed and accuracy, iterative approach.","tags":["adc"],"difficulty":"medium"},
+    {"id":"ELEC-078","question":"Sigma-delta ADC feature?","answer":"High resolution, slower speed.","tags":["adc"],"difficulty":"medium"},
+    {"id":"ELEC-079","question":"Quantization error in ADC?","answer":"Difference between actual signal and digitized value.","tags":["adc"],"difficulty":"medium"},
+    {"id":"ELEC-080","question":"Resolution of N-bit ADC?","answer":"Vref / 2^N.","tags":["adc"],"difficulty":"medium"},
+
+    {"id":"ELEC-081","question":"Amplifier bandwidth defined as?","answer":"Frequency range with gain ≥ 0.707 of max.","tags":["amplifiers"],"difficulty":"medium"},
+    {"id":"ELEC-082","question":"Class A amplifier characteristic?","answer":"Conducts for full cycle (360°).","tags":["amplifiers"],"difficulty":"medium"},
+    {"id":"ELEC-083","question":"Class B amplifier characteristic?","answer":"Conducts for half cycle (180°).","tags":["amplifiers"],"difficulty":"medium"},
+    {"id":"ELEC-084","question":"Class AB amplifier advantage?","answer":"Combines efficiency of B and linearity of A.","tags":["amplifiers"],"difficulty":"medium"},
+    {"id":"ELEC-085","question":"Class C amplifier used for?","answer":"High efficiency RF amplification.","tags":["amplifiers"],"difficulty":"medium"},
+    {"id":"ELEC-086","question":"Differential amplifier rejects?","answer":"Common-mode signals, amplifies difference.","tags":["amplifiers"],"difficulty":"hard"},
+    {"id":"ELEC-087","question":"Feedback in amplifiers provides?","answer":"Stability, control of gain, bandwidth shaping.","tags":["feedback"],"difficulty":"medium"},
+    {"id":"ELEC-088","question":"Negative feedback reduces?","answer":"Distortion, increases bandwidth.","tags":["feedback"],"difficulty":"medium"},
+    {"id":"ELEC-089","question":"Positive feedback leads to?","answer":"Oscillation or instability.","tags":["feedback"],"difficulty":"medium"},
+    {"id":"ELEC-090","question":"Oscillator basic requirement?","answer":"Loop gain >= 1 and phase shift 0° or 360°.","tags":["oscillators"],"difficulty":"medium"},
+
+    {"id":"ELEC-091","question":"RC oscillator uses what?","answer":"RC networks to set frequency.","tags":["oscillators"],"difficulty":"medium"},
+    {"id":"ELEC-092","question":"LC oscillator uses what?","answer":"Tank circuit (inductor + capacitor).","tags":["oscillators"],"difficulty":"medium"},
+    {"id":"ELEC-093","question":"Crystal oscillator advantage?","answer":"High frequency stability.","tags":["oscillators"],"difficulty":"medium"},
+    {"id":"ELEC-094","question":"555 timer modes?","answer":"Astable, monostable, bistable.","tags":["timers"],"difficulty":"medium"},
+    {"id":"ELEC-095","question":"Duty cycle definition?","answer":"Percentage of time signal is high in one period.","tags":["waveforms"],"difficulty":"easy"},
+    {"id":"ELEC-096","question":"PWM stands for?","answer":"Pulse Width Modulation.","tags":["waveforms"],"difficulty":"easy"},
+    {"id":"ELEC-097","question":"Switching regulator advantage?","answer":"High efficiency DC-DC conversion.","tags":["power"],"difficulty":"medium"},
+    {"id":"ELEC-098","question":"Linear regulator characteristic?","answer":"Simple, low noise, less efficient.","tags":["power"],"difficulty":"medium"},
+    {"id":"ELEC-099","question":"SMPS stands for?","answer":"Switched Mode Power Supply.","tags":["power"],"difficulty":"medium"},
+    {"id":"ELEC-100","question":"Three-terminal regulator example?","answer":"78XX series (e.g., 7805).","tags":["power"],"difficulty":"easy"}
+  ]
+</script>
+
+<script type="application/json" id="topic-thermodynamics">
+  [
+    {"id":"THERMO-001","question":"Define thermodynamics.","answer":"Science of energy and its transformations.","tags":["basics"],"difficulty":"easy"},
+    {"id":"THERMO-002","question":"System vs surroundings?","answer":"System = part under study; surroundings = everything else.","tags":["basics"],"difficulty":"easy"},
+    {"id":"THERMO-003","question":"Define boundary in thermodynamics.","answer":"Surface separating system from surroundings.","tags":["basics"],"difficulty":"easy"},
+    {"id":"THERMO-004","question":"Closed system allows what exchange?","answer":"Energy but not mass.","tags":["systems"],"difficulty":"easy"},
+    {"id":"THERMO-005","question":"Open system allows what exchange?","answer":"Both mass and energy.","tags":["systems"],"difficulty":"easy"},
+    {"id":"THERMO-006","question":"Isolated system allows what exchange?","answer":"Neither mass nor energy.","tags":["systems"],"difficulty":"easy"},
+    {"id":"THERMO-007","question":"Define intensive property.","answer":"Independent of system size (e.g., temperature).","tags":["properties"],"difficulty":"easy"},
+    {"id":"THERMO-008","question":"Define extensive property.","answer":"Depends on system size (e.g., volume, mass).","tags":["properties"],"difficulty":"easy"},
+    {"id":"THERMO-009","question":"State function meaning?","answer":"Depends only on state, not path (e.g., U, H).","tags":["properties"],"difficulty":"easy"},
+    {"id":"THERMO-010","question":"Path function meaning?","answer":"Depends on path (e.g., work, heat).","tags":["properties"],"difficulty":"easy"},
+
+    {"id":"THERMO-011","question":"Zeroth law states?","answer":"If A=B and B=C in thermal equilibrium, then A=C.","tags":["laws"],"difficulty":"easy"},
+    {"id":"THERMO-012","question":"Temperature measured by?","answer":"Thermometers using Zeroth law.","tags":["laws"],"difficulty":"easy"},
+    {"id":"THERMO-013","question":"First law states?","answer":"Energy conservation: ΔU = Q - W.","tags":["laws"],"difficulty":"easy"},
+    {"id":"THERMO-014","question":"Work sign convention?","answer":"Work done by system is positive.","tags":["conventions"],"difficulty":"easy"},
+    {"id":"THERMO-015","question":"Heat sign convention?","answer":"Heat added to system is positive.","tags":["conventions"],"difficulty":"easy"},
+    {"id":"THERMO-016","question":"Specific heat definition?","answer":"Heat required to raise unit mass by 1°C.","tags":["heat"],"difficulty":"easy"},
+    {"id":"THERMO-017","question":"Cv vs Cp difference?","answer":"Cv = at constant volume, Cp = at constant pressure.","tags":["heat"],"difficulty":"easy"},
+    {"id":"THERMO-018","question":"For ideal gas, Cp - Cv = ?","answer":"Gas constant R.","tags":["ideal gas"],"difficulty":"medium"},
+    {"id":"THERMO-019","question":"Enthalpy definition?","answer":"H = U + PV.","tags":["enthalpy"],"difficulty":"easy"},
+    {"id":"THERMO-020","question":"Units of enthalpy?","answer":"Joules (J).","tags":["enthalpy"],"difficulty":"easy"},
+
+    {"id":"THERMO-021","question":"Second law states?","answer":"Entropy of isolated system never decreases.","tags":["laws"],"difficulty":"medium"},
+    {"id":"THERMO-022","question":"Kelvin-Planck statement?","answer":"Impossible for heat engine to convert all Q to W.","tags":["laws"],"difficulty":"medium"},
+    {"id":"THERMO-023","question":"Clausius statement?","answer":"Heat cannot flow from cold to hot without work.","tags":["laws"],"difficulty":"medium"},
+    {"id":"THERMO-024","question":"Define entropy.","answer":"Measure of disorder or randomness.","tags":["entropy"],"difficulty":"medium"},
+    {"id":"THERMO-025","question":"Entropy change equation?","answer":"dS = δQrev / T.","tags":["entropy"],"difficulty":"medium"},
+    {"id":"THERMO-026","question":"Reversible process property?","answer":"No entropy generation.","tags":["processes"],"difficulty":"medium"},
+    {"id":"THERMO-027","question":"Irreversible process causes?","answer":"Entropy generation.","tags":["processes"],"difficulty":"medium"},
+    {"id":"THERMO-028","question":"Define isothermal process.","answer":"Temperature constant, ΔU=0.","tags":["processes"],"difficulty":"easy"},
+    {"id":"THERMO-029","question":"Define adiabatic process.","answer":"No heat transfer, Q=0.","tags":["processes"],"difficulty":"easy"},
+    {"id":"THERMO-030","question":"Polytropic process equation?","answer":"PV^n = constant.","tags":["processes"],"difficulty":"medium"},
+
+    {"id":"THERMO-031","question":"Work in isothermal ideal gas expansion?","answer":"W = nRT ln(V2/V1).","tags":["work"],"difficulty":"medium"},
+    {"id":"THERMO-032","question":"Work in adiabatic expansion?","answer":"W = (P2V2 - P1V1)/(1-γ).","tags":["work"],"difficulty":"hard"},
+    {"id":"THERMO-033","question":"γ (gamma) definition?","answer":"γ = Cp/Cv.","tags":["ratios"],"difficulty":"medium"},
+    {"id":"THERMO-034","question":"Typical γ for air?","answer":"≈ 1.4.","tags":["ratios"],"difficulty":"easy"},
+    {"id":"THERMO-035","question":"Ideal gas equation?","answer":"PV = nRT.","tags":["ideal gas"],"difficulty":"easy"},
+    {"id":"THERMO-036","question":"Universal gas constant R value?","answer":"8.314 J/mol·K.","tags":["constants"],"difficulty":"easy"},
+    {"id":"THERMO-037","question":"Equation of state definition?","answer":"Relation among P, V, T for a substance.","tags":["ideal gas"],"difficulty":"easy"},
+    {"id":"THERMO-038","question":"Compressibility factor Z?","answer":"Z = PV/RT for real gases.","tags":["real gas"],"difficulty":"medium"},
+    {"id":"THERMO-039","question":"Van der Waals equation?","answer":"(P + a/V^2)(V - b) = RT.","tags":["real gas"],"difficulty":"hard"},
+    {"id":"THERMO-040","question":"Critical point definition?","answer":"Point where liquid and vapor phases are indistinguishable.","tags":["phase"],"difficulty":"medium"},
+
+    {"id":"THERMO-041","question":"Triple point definition?","answer":"P, T where solid, liquid, vapor coexist.","tags":["phase"],"difficulty":"medium"},
+    {"id":"THERMO-042","question":"Latent heat definition?","answer":"Heat for phase change at constant T, P.","tags":["phase"],"difficulty":"easy"},
+    {"id":"THERMO-043","question":"Clapeyron equation use?","answer":"Slope of phase boundary line.","tags":["phase"],"difficulty":"hard"},
+    {"id":"THERMO-044","question":"Carnot cycle efficiency?","answer":"η = 1 - (Tc/Th).","tags":["cycles"],"difficulty":"medium"},
+    {"id":"THERMO-045","question":"Carnot cycle is ideal because?","answer":"All processes are reversible.","tags":["cycles"],"difficulty":"medium"},
+    {"id":"THERMO-046","question":"Rankine cycle application?","answer":"Steam power plants.","tags":["cycles"],"difficulty":"easy"},
+    {"id":"THERMO-047","question":"Brayton cycle application?","answer":"Gas turbines, jet engines.","tags":["cycles"],"difficulty":"easy"},
+    {"id":"THERMO-048","question":"Otto cycle application?","answer":"Spark ignition (petrol) engines.","tags":["cycles"],"difficulty":"easy"},
+    {"id":"THERMO-049","question":"Diesel cycle application?","answer":"Compression ignition (diesel) engines.","tags":["cycles"],"difficulty":"easy"},
+    {"id":"THERMO-050","question":"Refrigeration cycle uses?","answer":"Transfers heat from low T to high T using work.","tags":["cycles"],"difficulty":"easy"},
+
+    {"id":"THERMO-051","question":"COP of refrigerator?","answer":"COP = QL/W.","tags":["refrigeration"],"difficulty":"medium"},
+    {"id":"THERMO-052","question":"COP of heat pump?","answer":"COP = QH/W.","tags":["refrigeration"],"difficulty":"medium"},
+    {"id":"THERMO-053","question":"Real engines less efficient than Carnot because?","answer":"Irreversibilities and losses.","tags":["cycles"],"difficulty":"medium"},
+    {"id":"THERMO-054","question":"Mean effective pressure (MEP)?","answer":"Average pressure giving same work output.","tags":["engines"],"difficulty":"medium"},
+    {"id":"THERMO-055","question":"Volumetric efficiency of engine?","answer":"Ratio of actual to theoretical intake volume.","tags":["engines"],"difficulty":"medium"},
+    {"id":"THERMO-056","question":"Supercharging effect?","answer":"Increases intake air pressure for more power.","tags":["engines"],"difficulty":"medium"},
+    {"id":"THERMO-057","question":"Turbocharging vs supercharging?","answer":"Turbo uses exhaust gas; supercharger uses crankshaft power.","tags":["engines"],"difficulty":"medium"},
+    {"id":"THERMO-058","question":"Pre-ignition in SI engine?","answer":"Fuel-air mixture ignites before spark.","tags":["engines"],"difficulty":"medium"},
+    {"id":"THERMO-059","question":"Knocking in engines?","answer":"Uncontrolled combustion causing pressure waves.","tags":["engines"],"difficulty":"medium"},
+    {"id":"THERMO-060","question":"Octane number measures?","answer":"Resistance to knocking in SI engines.","tags":["fuels"],"difficulty":"easy"},
+
+    {"id":"THERMO-061","question":"Cetane number measures?","answer":"Ignition quality of diesel fuel.","tags":["fuels"],"difficulty":"easy"},
+    {"id":"THERMO-062","question":"Higher calorific value (HCV)?","answer":"Includes condensation heat of water vapor.","tags":["fuels"],"difficulty":"medium"},
+    {"id":"THERMO-063","question":"Lower calorific value (LCV)?","answer":"Excludes condensation heat of water vapor.","tags":["fuels"],"difficulty":"medium"},
+    {"id":"THERMO-064","question":"Stoichiometric air-fuel ratio for petrol?","answer":"≈ 14.7:1 by mass.","tags":["fuels"],"difficulty":"medium"},
+    {"id":"THERMO-065","question":"Excess air effect on combustion?","answer":"Reduces efficiency, lowers flame temperature.","tags":["combustion"],"difficulty":"medium"},
+    {"id":"THERMO-066","question":"Incomplete combustion produces?","answer":"CO, unburnt hydrocarbons.","tags":["combustion"],"difficulty":"medium"},
+    {"id":"THERMO-067","question":"Adiabatic flame temperature?","answer":"Max possible temperature after combustion without losses.","tags":["combustion"],"difficulty":"hard"},
+    {"id":"THERMO-068","question":"Boiler efficiency definition?","answer":"Useful heat absorbed / heat supplied.","tags":["boilers"],"difficulty":"medium"},
+    {"id":"THERMO-069","question":"Heat exchanger effectiveness?","answer":"Ratio of actual to max possible heat transfer.","tags":["heat exchangers"],"difficulty":"medium"},
+    {"id":"THERMO-070","question":"Counterflow heat exchanger advantage?","answer":"Greater heat transfer effectiveness than parallel flow.","tags":["heat exchangers"],"difficulty":"medium"},
+
+    {"id":"THERMO-071","question":"Fourier’s law of heat conduction?","answer":"q = -k A dT/dx.","tags":["heat transfer"],"difficulty":"medium"},
+    {"id":"THERMO-072","question":"Newton’s law of cooling?","answer":"q = h A (Ts - T∞).","tags":["heat transfer"],"difficulty":"medium"},
+    {"id":"THERMO-073","question":"Stefan-Boltzmann law?","answer":"q = σ A T^4.","tags":["radiation"],"difficulty":"medium"},
+    {"id":"THERMO-074","question":"Emissivity definition?","answer":"Ratio of radiation emitted to blackbody radiation.","tags":["radiation"],"difficulty":"medium"},
+    {"id":"THERMO-075","question":"Blackbody definition?","answer":"Perfect emitter and absorber of radiation.","tags":["radiation"],"difficulty":"medium"},
+    {"id":"THERMO-076","question":"Gray body assumption?","answer":"Emissivity independent of wavelength.","tags":["radiation"],"difficulty":"medium"},
+    {"id":"THERMO-077","question":"Prandtl number definition?","answer":"Pr = momentum diffusivity / thermal diffusivity.","tags":["dimensionless"],"difficulty":"hard"},
+    {"id":"THERMO-078","question":"Reynolds number definition?","answer":"Re = ρVD/μ, predicts laminar/turbulent flow.","tags":["dimensionless"],"difficulty":"hard"},
+    {"id":"THERMO-079","question":"Nusselt number definition?","answer":"Nu = convective / conductive heat transfer ratio.","tags":["dimensionless"],"difficulty":"hard"},
+    {"id":"THERMO-080","question":"Grashof number definition?","answer":"Ratio of buoyancy to viscous forces in free convection.","tags":["dimensionless"],"difficulty":"hard"},
+
+    {"id":"THERMO-081","question":"Thermal efficiency definition?","answer":"η = Wout / Qin.","tags":["performance"],"difficulty":"easy"},
+    {"id":"THERMO-082","question":"Mechanical efficiency of engine?","answer":"Brake power / Indicated power.","tags":["performance"],"difficulty":"medium"},
+    {"id":"THERMO-083","question":"Overall efficiency of power plant?","answer":"ηoverall = ηcycle × ηmechanical × ηelectrical.","tags":["performance"],"difficulty":"medium"},
+    {"id":"THERMO-084","question":"Entropy generation means?","answer":"Irreversibility in real processes.","tags":["entropy"],"difficulty":"medium"},
+    {"id":"THERMO-085","question":"Exergy definition?","answer":"Maximum useful work obtainable from system.","tags":["exergy"],"difficulty":"hard"},
+    {"id":"THERMO-086","question":"Exergy destroyed equals?","answer":"T0 × entropy generation.","tags":["exergy"],"difficulty":"hard"},
+    {"id":"THERMO-087","question":"Dead state meaning?","answer":"System in equilibrium with environment.","tags":["exergy"],"difficulty":"hard"},
+    {"id":"THERMO-088","question":"Gibbs free energy G?","answer":"G = H - TS.","tags":["free energy"],"difficulty":"medium"},
+    {"id":"THERMO-089","question":"Helmholtz free energy A?","answer":"A = U - TS.","tags":["free energy"],"difficulty":"medium"},
+    {"id":"THERMO-090","question":"Spontaneous process criterion (ΔG)?","answer":"ΔG < 0 at constant T, P.","tags":["free energy"],"difficulty":"medium"},
+
+    {"id":"THERMO-091","question":"Phase equilibrium condition?","answer":"Equality of temperature, pressure, chemical potential.","tags":["phase"],"difficulty":"hard"},
+    {"id":"THERMO-092","question":"Clausius-Clapeyron equation use?","answer":"Predicts vapor pressure variation with T.","tags":["phase"],"difficulty":"hard"},
+    {"id":"THERMO-093","question":"Psychrometrics studies?","answer":"Moist air properties and processes.","tags":["air"],"difficulty":"medium"},
+    {"id":"THERMO-094","question":"Dry bulb temperature?","answer":"Ordinary air temperature measurement.","tags":["air"],"difficulty":"easy"},
+    {"id":"THERMO-095","question":"Wet bulb temperature?","answer":"Temperature with evaporative cooling.","tags":["air"],"difficulty":"medium"},
+    {"id":"THERMO-096","question":"Relative humidity definition?","answer":"Actual vapor pressure / saturation vapor pressure × 100%.","tags":["air"],"difficulty":"easy"},
+    {"id":"THERMO-097","question":"Dew point temperature?","answer":"Temperature at which condensation begins.","tags":["air"],"difficulty":"easy"},
+    {"id":"THERMO-098","question":"Humid specific volume?","answer":"Volume of moist air per kg dry air.","tags":["air"],"difficulty":"medium"},
+    {"id":"THERMO-099","question":"Cooling tower function?","answer":"Removes waste heat by evaporative cooling.","tags":["applications"],"difficulty":"medium"},
+    {"id":"THERMO-100","question":"Heat engine efficiency limited by?","answer":"Second law of thermodynamics.","tags":["laws"],"difficulty":"easy"}
+  ]
+</script>
+
+<script type="application/json" id="topic-fluid-mechanics">
+  [
+    {"id":"FLUID-001","question":"Define fluid mechanics.","answer":"Study of fluids (liquids, gases) at rest and in motion.","tags":["basics"],"difficulty":"easy"},
+    {"id":"FLUID-002","question":"Difference between fluid and solid?","answer":"Fluids deform continuously under shear stress; solids resist.","tags":["basics"],"difficulty":"easy"},
+    {"id":"FLUID-003","question":"Continuum assumption?","answer":"Fluid treated as continuous medium ignoring molecular discreteness.","tags":["basics"],"difficulty":"medium"},
+    {"id":"FLUID-004","question":"Define density.","answer":"Mass per unit volume, ρ = m/V.","tags":["properties"],"difficulty":"easy"},
+    {"id":"FLUID-005","question":"Specific weight definition?","answer":"Weight per unit volume, γ = ρg.","tags":["properties"],"difficulty":"easy"},
+    {"id":"FLUID-006","question":"Specific gravity?","answer":"Ratio of fluid density to water density at 4°C.","tags":["properties"],"difficulty":"easy"},
+    {"id":"FLUID-007","question":"Viscosity definition?","answer":"Resistance to deformation due to shear stress.","tags":["properties"],"difficulty":"medium"},
+    {"id":"FLUID-008","question":"Newton’s law of viscosity?","answer":"τ = μ (du/dy).","tags":["viscosity"],"difficulty":"medium"},
+    {"id":"FLUID-009","question":"Dynamic vs kinematic viscosity?","answer":"ν = μ/ρ, dynamic μ has units Pa·s, kinematic ν has m²/s.","tags":["viscosity"],"difficulty":"medium"},
+    {"id":"FLUID-010","question":"Compressibility factor β?","answer":"β = -(1/V)(∂V/∂P).","tags":["properties"],"difficulty":"hard"},
+
+    {"id":"FLUID-011","question":"Surface tension definition?","answer":"Force per unit length at liquid interface.","tags":["surface"],"difficulty":"medium"},
+    {"id":"FLUID-012","question":"Capillarity effect?","answer":"Rise or depression of liquid in small tube due to surface tension.","tags":["surface"],"difficulty":"medium"},
+    {"id":"FLUID-013","question":"Pressure definition?","answer":"Normal force per unit area, P = F/A.","tags":["pressure"],"difficulty":"easy"},
+    {"id":"FLUID-014","question":"Pascal’s law?","answer":"Pressure applied to fluid is transmitted undiminished.","tags":["pressure"],"difficulty":"easy"},
+    {"id":"FLUID-015","question":"Gauge vs absolute pressure?","answer":"Gauge is relative to atmosphere; absolute = gauge + Patm.","tags":["pressure"],"difficulty":"easy"},
+    {"id":"FLUID-016","question":"Manometer use?","answer":"Measures fluid pressure using liquid column.","tags":["measurement"],"difficulty":"easy"},
+    {"id":"FLUID-017","question":"Hydrostatic pressure variation?","answer":"P = ρ g h.","tags":["hydrostatics"],"difficulty":"easy"},
+    {"id":"FLUID-018","question":"Hydrostatic paradox?","answer":"Pressure at a depth depends only on height, not container shape.","tags":["hydrostatics"],"difficulty":"medium"},
+    {"id":"FLUID-019","question":"Buoyant force principle?","answer":"Equal to weight of displaced fluid (Archimedes’ principle).","tags":["buoyancy"],"difficulty":"easy"},
+    {"id":"FLUID-020","question":"Metacenter definition?","answer":"Point about which floating body oscillates in small tilt.","tags":["buoyancy"],"difficulty":"hard"},
+
+    {"id":"FLUID-021","question":"Stable equilibrium condition of floating body?","answer":"Metacentric height GM > 0.","tags":["buoyancy"],"difficulty":"hard"},
+    {"id":"FLUID-022","question":"Reynolds transport theorem?","answer":"Relates system and control volume formulations.","tags":["fundamentals"],"difficulty":"hard"},
+    {"id":"FLUID-023","question":"Continuity equation?","answer":"Mass conservation: ∂ρ/∂t + ∇·(ρV) = 0.","tags":["conservation"],"difficulty":"medium"},
+    {"id":"FLUID-024","question":"Euler’s equation of motion?","answer":"For inviscid flow: ρ DV/Dt = -∇P + ρg.","tags":["equations"],"difficulty":"hard"},
+    {"id":"FLUID-025","question":"Navier-Stokes equation?","answer":"ρ DV/Dt = -∇P + μ∇²V + ρg.","tags":["equations"],"difficulty":"hard"},
+    {"id":"FLUID-026","question":"Streamline definition?","answer":"Curve tangent to velocity vector at every point.","tags":["flow"],"difficulty":"easy"},
+    {"id":"FLUID-027","question":"Pathline definition?","answer":"Trajectory of single fluid particle.","tags":["flow"],"difficulty":"easy"},
+    {"id":"FLUID-028","question":"Streakline definition?","answer":"Locus of particles that passed through a point.","tags":["flow"],"difficulty":"medium"},
+    {"id":"FLUID-029","question":"Laminar vs turbulent flow?","answer":"Laminar = orderly layers; turbulent = chaotic mixing.","tags":["flow"],"difficulty":"easy"},
+    {"id":"FLUID-030","question":"Reynolds number significance?","answer":"Predicts laminar or turbulent flow regime.","tags":["dimensionless"],"difficulty":"medium"},
+
+    {"id":"FLUID-031","question":"Critical Reynolds number for pipe flow?","answer":"≈ 2300 (laminar < Re < 2300).","tags":["dimensionless"],"difficulty":"medium"},
+    {"id":"FLUID-032","question":"Bernoulli’s equation?","answer":"P/ρg + v²/2g + z = constant (inviscid, incompressible).","tags":["energy"],"difficulty":"easy"},
+    {"id":"FLUID-033","question":"Limitations of Bernoulli’s eqn?","answer":"Inviscid, incompressible, steady flow, along streamline.","tags":["energy"],"difficulty":"medium"},
+    {"id":"FLUID-034","question":"Pitot tube measures?","answer":"Fluid velocity using stagnation pressure.","tags":["measurement"],"difficulty":"easy"},
+    {"id":"FLUID-035","question":"Venturi meter use?","answer":"Measures discharge using pressure difference.","tags":["measurement"],"difficulty":"medium"},
+    {"id":"FLUID-036","question":"Orifice meter use?","answer":"Measures flow rate with sharp-edged hole.","tags":["measurement"],"difficulty":"medium"},
+    {"id":"FLUID-037","question":"Head loss definition?","answer":"Energy loss due to friction and disturbances.","tags":["losses"],"difficulty":"medium"},
+    {"id":"FLUID-038","question":"Darcy-Weisbach equation?","answer":"hf = f (L/D)(v²/2g).","tags":["losses"],"difficulty":"medium"},
+    {"id":"FLUID-039","question":"Moody chart use?","answer":"Determines friction factor f from Re and roughness.","tags":["losses"],"difficulty":"medium"},
+    {"id":"FLUID-040","question":"Minor losses examples?","answer":"Due to bends, expansions, contractions, fittings.","tags":["losses"],"difficulty":"easy"},
+
+    {"id":"FLUID-041","question":"Boundary layer definition?","answer":"Region where velocity changes from 0 to free stream.","tags":["boundary layer"],"difficulty":"medium"},
+    {"id":"FLUID-042","question":"Displacement thickness?","answer":"Equivalent thickness by which streamlines are displaced.","tags":["boundary layer"],"difficulty":"hard"},
+    {"id":"FLUID-043","question":"Momentum thickness?","answer":"Represents momentum loss due to boundary layer.","tags":["boundary layer"],"difficulty":"hard"},
+    {"id":"FLUID-044","question":"Boundary layer separation?","answer":"Flow reversal near surface due to adverse pressure gradient.","tags":["boundary layer"],"difficulty":"hard"},
+    {"id":"FLUID-045","question":"Drag force formula?","answer":"Fd = 0.5 ρ v² Cd A.","tags":["forces"],"difficulty":"medium"},
+    {"id":"FLUID-046","question":"Lift force source?","answer":"Pressure difference across airfoil (Bernoulli + circulation).","tags":["forces"],"difficulty":"medium"},
+    {"id":"FLUID-047","question":"Stokes law for drag?","answer":"Fd = 6π μ r v (for small Re).","tags":["forces"],"difficulty":"hard"},
+    {"id":"FLUID-048","question":"Dimensional homogeneity?","answer":"All terms in equation must have same dimensions.","tags":["similarity"],"difficulty":"easy"},
+    {"id":"FLUID-049","question":"Buckingham π theorem?","answer":"Reduces variables into dimensionless groups.","tags":["similarity"],"difficulty":"hard"},
+    {"id":"FLUID-050","question":"Model testing similarity types?","answer":"Geometric, kinematic, dynamic.","tags":["similarity"],"difficulty":"medium"},
+
+    {"id":"FLUID-051","question":"Hydraulic grade line (HGL)?","answer":"Line showing pressure head in system.","tags":["hydraulics"],"difficulty":"medium"},
+    {"id":"FLUID-052","question":"Total energy line (TEL)?","answer":"Line representing pressure + velocity + elevation heads.","tags":["hydraulics"],"difficulty":"medium"},
+    {"id":"FLUID-053","question":"Cavitation in pumps?","answer":"Formation and collapse of vapor bubbles causing damage.","tags":["pumps"],"difficulty":"medium"},
+    {"id":"FLUID-054","question":"NPSH (Net Positive Suction Head)?","answer":"Available pressure head at pump suction to avoid cavitation.","tags":["pumps"],"difficulty":"hard"},
+    {"id":"FLUID-055","question":"Specific speed of pump?","answer":"Speed at which geometrically similar pump delivers unit flow at unit head.","tags":["pumps"],"difficulty":"hard"},
+    {"id":"FLUID-056","question":"Priming of pump?","answer":"Filling pump casing with liquid before starting to avoid air lock.","tags":["pumps"],"difficulty":"easy"},
+    {"id":"FLUID-057","question":"Types of pumps?","answer":"Centrifugal, reciprocating, axial flow.","tags":["pumps"],"difficulty":"easy"},
+    {"id":"FLUID-058","question":"Turbine specific speed?","answer":"Ns = N√P/H^(5/4).","tags":["turbines"],"difficulty":"hard"},
+    {"id":"FLUID-059","question":"Impulse turbine example?","answer":"Pelton wheel.","tags":["turbines"],"difficulty":"easy"},
+    {"id":"FLUID-060","question":"Reaction turbine example?","answer":"Francis turbine, Kaplan turbine.","tags":["turbines"],"difficulty":"easy"},
+
+    {"id":"FLUID-061","question":"Hydraulic efficiency of turbine?","answer":"ηh = Power delivered to runner / Water power.","tags":["turbines"],"difficulty":"medium"},
+    {"id":"FLUID-062","question":"Draft tube function?","answer":"Converts kinetic energy to pressure energy at turbine outlet.","tags":["turbines"],"difficulty":"medium"},
+    {"id":"FLUID-063","question":"Air vessel in reciprocating pump use?","answer":"Reduces pressure fluctuations and saves work.","tags":["pumps"],"difficulty":"hard"},
+    {"id":"FLUID-064","question":"Water hammer phenomenon?","answer":"Pressure surge due to sudden change in flow velocity.","tags":["transients"],"difficulty":"hard"},
+    {"id":"FLUID-065","question":"Surge tank function?","answer":"Controls pressure variations in water pipelines.","tags":["transients"],"difficulty":"hard"},
+    {"id":"FLUID-066","question":"Jet propulsion principle?","answer":"Thrust produced by expelling fluid backward (Newton’s 3rd law).","tags":["applications"],"difficulty":"medium"},
+    {"id":"FLUID-067","question":"Rocket vs jet engine working fluid?","answer":"Rocket carries its own oxidizer; jet uses atmospheric air.","tags":["applications"],"difficulty":"medium"},
+    {"id":"FLUID-068","question":"Hydraulic jump definition?","answer":"Sudden rise in liquid surface in open channel due to super- to sub-critical flow.","tags":["open channel"],"difficulty":"hard"},
+    {"id":"FLUID-069","question":"Froude number significance?","answer":"Fr = inertial/gravitational forces, classifies open channel flow.","tags":["dimensionless"],"difficulty":"hard"},
+    {"id":"FLUID-070","question":"Manning’s equation use?","answer":"For open channel flow velocity estimation.","tags":["open channel"],"difficulty":"medium"},
+
+    {"id":"FLUID-071","question":"Uniform vs non-uniform flow?","answer":"Uniform: velocity constant along length; non-uniform: varies.","tags":["open channel"],"difficulty":"easy"},
+    {"id":"FLUID-072","question":"Steady vs unsteady flow?","answer":"Steady: properties constant w.r.t time; unsteady: vary with time.","tags":["flow"],"difficulty":"easy"},
+    {"id":"FLUID-073","question":"Compressible vs incompressible flow?","answer":"Compressible: density changes significantly; incompressible: negligible density change.","tags":["flow"],"difficulty":"medium"},
+    {"id":"FLUID-074","question":"Mach number definition?","answer":"M = V/a, ratio of velocity to speed of sound.","tags":["dimensionless"],"difficulty":"medium"},
+    {"id":"FLUID-075","question":"Flow regimes by Mach number?","answer":"Subsonic M<1, sonic M=1, supersonic 1<M<5, hypersonic M>5.","tags":["compressible"],"difficulty":"medium"},
+    {"id":"FLUID-076","question":"Choked flow meaning?","answer":"Flow rate cannot increase despite lower downstream pressure when M=1 at throat.","tags":["compressible"],"difficulty":"hard"},
+    {"id":"FLUID-077","question":"Shock wave definition?","answer":"Thin region of abrupt property changes in supersonic flow.","tags":["compressible"],"difficulty":"hard"},
+    {"id":"FLUID-078","question":"Oblique shock vs normal shock?","answer":"Normal shock perpendicular, oblique at an angle.","tags":["compressible"],"difficulty":"hard"},
+    {"id":"FLUID-079","question":"Isentropic flow assumptions?","answer":"Adiabatic, reversible, no friction.","tags":["compressible"],"difficulty":"hard"},
+    {"id":"FLUID-080","question":"Nozzle function?","answer":"Converts pressure energy to kinetic energy.","tags":["compressible"],"difficulty":"medium"},
+
+    {"id":"FLUID-081","question":"Diffuser function?","answer":"Converts kinetic energy to pressure energy.","tags":["compressible"],"difficulty":"medium"},
+    {"id":"FLUID-082","question":"Continuity equation for compressible 1D flow?","answer":"ρAV = constant.","tags":["compressible"],"difficulty":"medium"},
+    {"id":"FLUID-083","question":"Momentum equation principle?","answer":"Force = rate of momentum change.","tags":["fundamentals"],"difficulty":"easy"},
+    {"id":"FLUID-084","question":"Energy grade line vs hydraulic grade line?","answer":"EGL above HGL by velocity head v²/2g.","tags":["hydraulics"],"difficulty":"medium"},
+    {"id":"FLUID-085","question":"Turbulent intensity definition?","answer":"Ratio of velocity fluctuation to mean velocity.","tags":["turbulence"],"difficulty":"hard"},
+    {"id":"FLUID-086","question":"Kolmogorov scales?","answer":"Smallest scales in turbulence where viscous dissipation occurs.","tags":["turbulence"],"difficulty":"hard"},
+    {"id":"FLUID-087","question":"Vorticity definition?","answer":"Curl of velocity vector: ω = ∇ × V.","tags":["vorticity"],"difficulty":"hard"},
+    {"id":"FLUID-088","question":"Circulation definition?","answer":"Line integral of velocity around closed curve.","tags":["vorticity"],"difficulty":"hard"},
+    {"id":"FLUID-089","question":"Kelvin’s circulation theorem?","answer":"In inviscid, barotropic flow with conservative body forces, circulation is conserved.","tags":["vorticity"],"difficulty":"hard"},
+    {"id":"FLUID-090","question":"Potential flow assumption?","answer":"Inviscid, irrotational flow described by velocity potential φ.","tags":["potential flow"],"difficulty":"hard"},
+
+    {"id":"FLUID-091","question":"Stream function ψ significance?","answer":"Constant ψ lines represent streamlines in 2D incompressible flow.","tags":["potential flow"],"difficulty":"hard"},
+    {"id":"FLUID-092","question":"Source and sink flows?","answer":"Radial flows outward (source) or inward (sink) from a point.","tags":["potential flow"],"difficulty":"medium"},
+    {"id":"FLUID-093","question":"Doublet flow definition?","answer":"Superposition of source and sink infinitesimally close.","tags":["potential flow"],"difficulty":"hard"},
+    {"id":"FLUID-094","question":"Lift on cylinder with circulation (Kutta-Joukowski)?","answer":"L = ρ V Γ per unit span.","tags":["aero"],"difficulty":"hard"},
+    {"id":"FLUID-095","question":"Drag coefficient Cd definition?","answer":"Cd = Fd / (0.5 ρ v² A).","tags":["aero"],"difficulty":"medium"},
+    {"id":"FLUID-096","question":"Lift coefficient Cl definition?","answer":"Cl = L / (0.5 ρ v² A).","tags":["aero"],"difficulty":"medium"},
+    {"id":"FLUID-097","question":"Pressure coefficient Cp?","answer":"Cp = (P - P∞)/(0.5 ρ V²).","tags":["aero"],"difficulty":"medium"},
+    {"id":"FLUID-098","question":"Stagnation pressure definition?","answer":"Static pressure + dynamic pressure (P0 = P + 0.5ρV²).","tags":["aero"],"difficulty":"easy"}
+    ]
+</script>
+<script type="application/json" id="topic-magnetism">[
+  {"id":"MAG-001","question":"What is magnetism?","answer":"A physical phenomenon produced by moving electric charges resulting in attractive/repulsive forces.","tags":["basics"],"difficulty":"easy"},
+  {"id":"MAG-002","question":"Magnetic dipole definition.","answer":"A system with north and south poles generating a magnetic field.","tags":["basics"],"difficulty":"easy"},
+  {"id":"MAG-003","question":"Unit of magnetic field strength H.","answer":"A/m (amperes per meter).","tags":["units"],"difficulty":"easy"},
+  {"id":"MAG-004","question":"Unit of magnetic flux density B.","answer":"Tesla (T).","tags":["units"],"difficulty":"easy"},
+  {"id":"MAG-005","question":"Relation between B and H.","answer":"B = μ₀μᵣH.","tags":["formulas"],"difficulty":"medium"},
+  {"id":"MAG-006","question":"Permeability of free space μ₀.","answer":"4π × 10⁻⁷ H/m.","tags":["constants"],"difficulty":"easy"},
+  {"id":"MAG-007","question":"Magnetic susceptibility χm.","answer":"χm = (μᵣ − 1).","tags":["formulas"],"difficulty":"medium"},
+  {"id":"MAG-008","question":"Diamagnetic materials show what χm?","answer":"Small negative susceptibility.","tags":["materials"],"difficulty":"easy"},
+  {"id":"MAG-009","question":"Paramagnetic materials χm.","answer":"Small positive susceptibility.","tags":["materials"],"difficulty":"easy"},
+  {"id":"MAG-010","question":"Ferromagnetic χm.","answer":"Very large positive susceptibility, nonlinear response.","tags":["materials"],"difficulty":"medium"},
+  {"id":"MAG-011","question":"Examples of diamagnetic materials.","answer":"Copper, gold, bismuth.","tags":["examples"],"difficulty":"easy"},
+  {"id":"MAG-012","question":"Examples of paramagnetic materials.","answer":"Aluminum, platinum, lithium.","tags":["examples"],"difficulty":"easy"},
+  {"id":"MAG-013","question":"Examples of ferromagnetic materials.","answer":"Iron, cobalt, nickel.","tags":["examples"],"difficulty":"easy"},
+  {"id":"MAG-014","question":"Curie temperature significance.","answer":"Above it, ferromagnetic → paramagnetic.","tags":["phase"],"difficulty":"medium"},
+  {"id":"MAG-015","question":"Magnetic domains.","answer":"Regions where atomic dipoles align collectively.","tags":["domains"],"difficulty":"easy"},
+  {"id":"MAG-016","question":"Domain walls.","answer":"Boundaries between magnetic domains.","tags":["domains"],"difficulty":"medium"},
+  {"id":"MAG-017","question":"Hysteresis loop shows?","answer":"Relationship between B and H; illustrates magnetization/remanence/coercivity.","tags":["hysteresis"],"difficulty":"medium"},
+  {"id":"MAG-018","question":"Remanence (Br).","answer":"Residual magnetization after removing applied field.","tags":["hysteresis"],"difficulty":"medium"},
+  {"id":"MAG-019","question":"Coercivity (Hc).","answer":"Field needed to reduce magnetization to zero after saturation.","tags":["hysteresis"],"difficulty":"medium"},
+  {"id":"MAG-020","question":"Soft magnetic materials key property.","answer":"Low coercivity, narrow hysteresis loop → easy magnetization/demagnetization.","tags":["materials"],"difficulty":"easy"},
+  {"id":"MAG-021","question":"Hard magnetic materials.","answer":"High coercivity, wide hysteresis loop → permanent magnets.","tags":["materials"],"difficulty":"easy"},
+  {"id":"MAG-022","question":"Energy loss in hysteresis.","answer":"Area inside hysteresis loop represents energy loss per cycle.","tags":["losses"],"difficulty":"medium"},
+  {"id":"MAG-023","question":"Magnetic flux Φ unit.","answer":"Weber (Wb).","tags":["units"],"difficulty":"easy"},
+  {"id":"MAG-024","question":"Relation between Φ, B, A.","answer":"Φ = B·A·cosθ.","tags":["formulas"],"difficulty":"easy"},
+  {"id":"MAG-025","question":"Magnetic circuit law.","answer":"Φ = MMF / Reluctance (Φ = NI/ℛ).","tags":["circuits"],"difficulty":"medium"},
+  {"id":"MAG-026","question":"Reluctance unit.","answer":"A·turns per Weber.","tags":["units"],"difficulty":"hard"},
+  {"id":"MAG-027","question":"Magnetomotive force MMF formula.","answer":"MMF = NI (ampere-turns).","tags":["formulas"],"difficulty":"easy"},
+  {"id":"MAG-028","question":"What is flux leakage?","answer":"When not all flux is confined to the intended path.","tags":["circuits"],"difficulty":"medium"},
+  {"id":"MAG-029","question":"Magnetic saturation.","answer":"When further increases in H produce little increase in B.","tags":["saturation"],"difficulty":"medium"},
+  {"id":"MAG-030","question":"Applications of soft magnets.","answer":"Transformers, inductors, motor cores.","tags":["applications"],"difficulty":"easy"},
+  {"id":"MAG-031","question":"Applications of hard magnets.","answer":"Permanent magnets in motors, sensors, speakers.","tags":["applications"],"difficulty":"easy"},
+  {"id":"MAG-032","question":"Anisotropy in magnetism.","answer":"Directional dependence of magnetic properties.","tags":["properties"],"difficulty":"medium"},
+  {"id":"MAG-033","question":"Magnetostriction.","answer":"Change in shape/size when magnetized.","tags":["effects"],"difficulty":"medium"},
+  {"id":"MAG-034","question":"Magnetoresistance.","answer":"Change in electrical resistance under magnetic field.","tags":["effects"],"difficulty":"medium"},
+  {"id":"MAG-035","question":"Hall effect.","answer":"Voltage generated perpendicular to current and magnetic field.","tags":["effects"],"difficulty":"easy"},
+  {"id":"MAG-036","question":"Magnetic resonance.","answer":"Absorption of EM waves at frequency matching spin precession.","tags":["resonance"],"difficulty":"hard"},
+  {"id":"MAG-037","question":"Lenz’s law.","answer":"Induced EMF opposes the change in flux producing it.","tags":["laws"],"difficulty":"easy"},
+  {"id":"MAG-038","question":"Faraday’s law of induction.","answer":"Induced EMF = −dΦ/dt.","tags":["laws"],"difficulty":"easy"},
+  {"id":"MAG-039","question":"Maxwell’s equation for B field.","answer":"∇·B = 0 (no magnetic monopoles).","tags":["maxwell"],"difficulty":"hard"},
+  {"id":"MAG-040","question":"Ampère’s law with Maxwell correction.","answer":"∇×B = μ₀(J + ε₀ dE/dt).","tags":["maxwell"],"difficulty":"hard"},
+  {"id":"MAG-041","question":"Difference between permanent and induced magnets.","answer":"Permanent retain magnetization; induced exist only in applied field.","tags":["concepts"],"difficulty":"easy"},
+  {"id":"MAG-042","question":"Earth’s magnetic field typical strength.","answer":"~25–65 μT.","tags":["earth"],"difficulty":"easy"},
+  {"id":"MAG-043","question":"Magnetic declination.","answer":"Angle between geographic north and magnetic north.","tags":["earth"],"difficulty":"medium"},
+  {"id":"MAG-044","question":"Geomagnetic reversals.","answer":"Polarity flips in Earth’s field over geologic time.","tags":["earth"],"difficulty":"hard"},
+  {"id":"MAG-045","question":"MRI principle.","answer":"Aligns nuclear spins with magnetic field, detects resonance signals.","tags":["applications"],"difficulty":"medium"},
+  {"id":"MAG-046","question":"Magnetic shielding material.","answer":"High-permeability alloys like mu-metal.","tags":["applications"],"difficulty":"medium"},
+  {"id":"MAG-047","question":"Superparamagnetism.","answer":"Nanoparticles act like single magnetic domains; lose magnetism without field.","tags":["nanomaterials"],"difficulty":"hard"},
+  {"id":"MAG-048","question":"Antiferromagnetism.","answer":"Adjacent spins align antiparallel, canceling magnetization.","tags":["materials"],"difficulty":"hard"},
+  {"id":"MAG-049","question":"Ferrimagnetism.","answer":"Spins align antiparallel but unequal → net magnetization.","tags":["materials"],"difficulty":"medium"},
+  {"id":"MAG-050","question":"Ferrites applications.","answer":"Transformers, inductors, antennas, RF cores.","tags":["applications"],"difficulty":"easy"},
+  {"id":"MAG-051","question":"What is magnetocaloric effect?","answer":"Temperature change in material when exposed to changing magnetic field.","tags":["effects"],"difficulty":"hard"},
+  {"id":"MAG-052","question":"Magnetic susceptibility temperature dependence.","answer":"χ ∝ 1/(T−θ) (Curie–Weiss law).","tags":["laws"],"difficulty":"hard"},
+  {"id":"MAG-053","question":"Quantum origin of magnetism.","answer":"Electron spin and orbital angular momentum.","tags":["quantum"],"difficulty":"hard"},
+  {"id":"MAG-054","question":"Spintronics definition.","answer":"Electronics that exploit electron spin in addition to charge.","tags":["applications"],"difficulty":"hard"},
+  {"id":"MAG-055","question":"Magnetic anisotropy energy.","answer":"Energy required to reorient magnetization along non-easy axis.","tags":["properties"],"difficulty":"hard"},
+  {"id":"MAG-056","question":"Exchange interaction role.","answer":"Quantum interaction aligning spins parallel/antiparallel.","tags":["quantum"],"difficulty":"hard"},
+  {"id":"MAG-057","question":"Magnetic pressure.","answer":"Force per unit area due to magnetic field: B²/(2μ₀).","tags":["formulas"],"difficulty":"medium"},
+  {"id":"MAG-058","question":"What is flux pinning in superconductors?","answer":"Magnetic vortices trapped at defects, preventing motion.","tags":["superconductors"],"difficulty":"hard"},
+  {"id":"MAG-059","question":"Type I vs Type II superconductors magnetism.","answer":"Type I expel flux completely (Meissner), Type II allow vortices.","tags":["superconductors"],"difficulty":"hard"},
+  {"id":"MAG-060","question":"What is demagnetization factor?","answer":"Factor accounting for shape influence on internal field.","tags":["properties"],"difficulty":"hard"},
+  {"id":"MAG-061","question":"What is coercive field in recording media?","answer":"Strength required to flip magnetization in bit storage.","tags":["applications"],"difficulty":"medium"},
+  {"id":"MAG-062","question":"What are magnetic nanoparticles used for?","answer":"Drug delivery, hyperthermia treatment, imaging.","tags":["applications"],"difficulty":"hard"},
+  {"id":"MAG-063","question":"What is Barkhausen noise?","answer":"Discontinuous jumps in magnetization as domain walls move.","tags":["effects"],"difficulty":"medium"},
+  {"id":"MAG-064","question":"GMR effect application.","answer":"Hard disk read heads, MRAM.","tags":["applications"],"difficulty":"hard"},
+  {"id":"MAG-065","question":"Magnetohydrodynamics (MHD).","answer":"Study of conducting fluids in magnetic fields.","tags":["applications"],"difficulty":"hard"},
+  {"id":"MAG-066","question":"Lorentz force law.","answer":"F = q(E + v×B).","tags":["laws"],"difficulty":"easy"},
+  {"id":"MAG-067","question":"Cyclotron frequency formula.","answer":"ωc = qB/m.","tags":["formulas"],"difficulty":"medium"},
+  {"id":"MAG-068","question":"Zeeman effect.","answer":"Spectral line splitting in magnetic field.","tags":["effects"],"difficulty":"hard"},
+  {"id":"MAG-069","question":"Magnetic dipole moment μ.","answer":"Current × area (I·A).","tags":["formulas"],"difficulty":"easy"},
+  {"id":"MAG-070","question":"Force between two magnetic poles.","answer":"F = μ₀ m₁ m₂ / (4π r²).","tags":["formulas"],"difficulty":"hard"},
+  {"id":"MAG-071","question":"Unit of dipole moment.","answer":"A·m².","tags":["units"],"difficulty":"easy"},
+  {"id":"MAG-072","question":"Torque on dipole in field.","answer":"τ = μ × B.","tags":["formulas"],"difficulty":"medium"},
+  {"id":"MAG-073","question":"Potential energy of dipole.","answer":"U = −μ·B.","tags":["formulas"],"difficulty":"medium"},
+  {"id":"MAG-074","question":"What is magnetic reluctivity?","answer":"Inverse of permeability.","tags":["properties"],"difficulty":"medium"},
+  {"id":"MAG-075","question":"Domain theory explains what?","answer":"Hysteresis and magnetization behavior of ferromagnets.","tags":["theories"],"difficulty":"medium"},
+  {"id":"MAG-076","question":"Heisenberg model.","answer":"Quantum spin interaction model for magnetism.","tags":["theories"],"difficulty":"hard"},
+  {"id":"MAG-077","question":"Ising model.","answer":"Lattice model for magnetic phase transitions.","tags":["theories"],"difficulty":"hard"},
+  {"id":"MAG-078","question":"Frustrated magnetism.","answer":"Competing interactions prevent simple ordering.","tags":["quantum"],"difficulty":"hard"},
+  {"id":"MAG-079","question":"Spin glass.","answer":"Disordered magnetic system with frozen random spins.","tags":["materials"],"difficulty":"hard"},
+  {"id":"MAG-080","question":"Magnetic entropy change used in?","answer":"Magnetic refrigeration.","tags":["applications"],"difficulty":"hard"},
+  {"id":"MAG-081","question":"Magnetic levitation principle.","answer":"Opposing magnetic forces counteract gravity.","tags":["applications"],"difficulty":"medium"},
+  {"id":"MAG-082","question":"Diamagnetic levitation example.","answer":"Levitating frog in strong field.","tags":["applications"],"difficulty":"easy"},
+  {"id":"MAG-083","question":"Applications of permanent magnets.","answer":"Motors, generators, magnetic locks.","tags":["applications"],"difficulty":"easy"},
+  {"id":"MAG-084","question":"Applications of electromagnets.","answer":"Relays, MRI, particle accelerators.","tags":["applications"],"difficulty":"easy"},
+  {"id":"MAG-085","question":"What is retentivity?","answer":"Ability to retain magnetization.","tags":["properties"],"difficulty":"easy"},
+  {"id":"MAG-086","question":"What is initial permeability?","answer":"Slope of B-H curve near origin.","tags":["properties"],"difficulty":"medium"},
+  {"id":"MAG-087","question":"Effect of temperature on magnetization.","answer":"Higher temperature reduces magnetization due to disorder.","tags":["effects"],"difficulty":"medium"},
+  {"id":"MAG-088","question":"Bloch’s theorem in magnetism.","answer":"Spin wave excitations (magnons) in ferromagnets.","tags":["quantum"],"difficulty":"hard"},
+  {"id":"MAG-089","question":"Spin wave definition.","answer":"Collective excitation of spins in a magnetic lattice.","tags":["quantum"],"difficulty":"hard"},
+  {"id":"MAG-090","question":"Kondo effect.","answer":"Magnetic impurities in metals cause resistance minimum.","tags":["effects"],"difficulty":"hard"},
+  {"id":"MAG-091","question":"Skyrmions.","answer":"Topological spin textures in magnetic systems.","tags":["quantum"],"difficulty":"hard"},
+  {"id":"MAG-092","question":"Magnetic monopoles exist?","answer":"No isolated poles observed, only dipoles.","tags":["concepts"],"difficulty":"medium"},
+  {"id":"MAG-093","question":"Eddy current loss.","answer":"Circulating currents induced in conductors dissipate heat.","tags":["losses"],"difficulty":"medium"},
+  {"id":"MAG-094","question":"Lamination reduces what loss?","answer":"Eddy current loss in transformer cores.","tags":["losses"],"difficulty":"easy"},
+  {"id":"MAG-095","question":"Nanocrystalline magnetic alloys use.","answer":"Low-loss transformer cores, high-frequency inductors.","tags":["applications"],"difficulty":"medium"},
+  {"id":"MAG-096","question":"Grain-oriented Si steel use.","answer":"Transformer cores → low hysteresis, high efficiency.","tags":["applications"],"difficulty":"medium"},
+  {"id":"MAG-097","question":"What is magnetoplasma?","answer":"Plasma under influence of magnetic field.","tags":["applications"],"difficulty":"hard"},
+  {"id":"MAG-098","question":"Diamagnetic shielding in superconductors.","answer":"Meissner effect expels magnetic field.","tags":["superconductors"],"difficulty":"hard"},
+  {"id":"MAG-099","question":"Critical magnetic field Hc in superconductors.","answer":"Maximum field a superconductor can expel.","tags":["superconductors"],"difficulty":"hard"},
+  {"id":"MAG-100","question":"Trade-off in magnetic materials design.","answer":"Strength vs losses vs cost, depending on application.","tags":["design"],"difficulty":"medium"}
+]
+</script>
+
+<script type="application/json" id="topic-electrochemistry">[
+  {"id":"EC-001","question":"What is electrochemistry?","answer":"The study of chemical processes that cause electrons to move, creating electric currents.","tags":["basics"],"difficulty":"easy"},
+  {"id":"EC-002","question":"Oxidation definition.","answer":"Loss of electrons.","tags":["redox"],"difficulty":"easy"},
+  {"id":"EC-003","question":"Reduction definition.","answer":"Gain of electrons.","tags":["redox"],"difficulty":"easy"},
+  {"id":"EC-004","question":"OIL RIG mnemonic.","answer":"Oxidation Is Loss, Reduction Is Gain.","tags":["redox"],"difficulty":"easy"},
+  {"id":"EC-005","question":"What is an electrochemical cell?","answer":"A device that converts chemical energy into electrical energy or vice versa.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-006","question":"Two main types of electrochemical cells.","answer":"Galvanic (voltaic) and electrolytic.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-007","question":"Galvanic cell definition.","answer":"Spontaneous redox reaction generates electricity.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-008","question":"Electrolytic cell definition.","answer":"Non-spontaneous reaction driven by external electricity.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-009","question":"Example of a galvanic cell.","answer":"Daniell cell (Zn/Cu).","tags":["examples"],"difficulty":"easy"},
+  {"id":"EC-010","question":"Anode in galvanic cell.","answer":"Site of oxidation, negative electrode.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-011","question":"Cathode in galvanic cell.","answer":"Site of reduction, positive electrode.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-012","question":"Anode in electrolytic cell.","answer":"Site of oxidation, positive electrode.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-013","question":"Cathode in electrolytic cell.","answer":"Site of reduction, negative electrode.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-014","question":"What is a salt bridge?","answer":"Maintains charge neutrality by allowing ion flow between half-cells.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-015","question":"Standard electrode potential symbol.","answer":"E°.","tags":["potentials"],"difficulty":"easy"},
+  {"id":"EC-016","question":"Reference electrode used for potentials.","answer":"Standard hydrogen electrode (SHE).","tags":["potentials"],"difficulty":"medium"},
+  {"id":"EC-017","question":"Standard electrode potential of SHE.","answer":"0.00 V at all temperatures by convention.","tags":["potentials"],"difficulty":"medium"},
+  {"id":"EC-018","question":"Cell potential equation.","answer":"E°cell = E°cathode − E°anode.","tags":["formulas"],"difficulty":"easy"},
+  {"id":"EC-019","question":"Positive E°cell means?","answer":"Reaction is spontaneous under standard conditions.","tags":["concepts"],"difficulty":"easy"},
+  {"id":"EC-020","question":"Nernst equation.","answer":"E = E° − (RT/nF) lnQ.","tags":["formulas"],"difficulty":"medium"},
+  {"id":"EC-021","question":"Simplified Nernst at 25°C.","answer":"E = E° − (0.0591/n) logQ.","tags":["formulas"],"difficulty":"medium"},
+  {"id":"EC-022","question":"Faraday constant value.","answer":"96,485 C/mol e⁻.","tags":["constants"],"difficulty":"easy"},
+  {"id":"EC-023","question":"Relationship between ΔG° and E°cell.","answer":"ΔG° = −nFE°cell.","tags":["formulas"],"difficulty":"medium"},
+  {"id":"EC-024","question":"What is corrosion?","answer":"Undesired oxidation of metals, e.g., rusting of iron.","tags":["applications"],"difficulty":"easy"},
+  {"id":"EC-025","question":"Electrolyte definition.","answer":"Substance that conducts electricity via ion movement in solution.","tags":["basics"],"difficulty":"easy"},
+  {"id":"EC-026","question":"Primary battery definition.","answer":"Non-rechargeable; reactions irreversible.","tags":["batteries"],"difficulty":"easy"},
+  {"id":"EC-027","question":"Secondary battery definition.","answer":"Rechargeable; reactions reversible.","tags":["batteries"],"difficulty":"easy"},
+  {"id":"EC-028","question":"Example of primary battery.","answer":"Zinc-carbon cell, alkaline battery.","tags":["batteries"],"difficulty":"easy"},
+  {"id":"EC-029","question":"Example of secondary battery.","answer":"Lead-acid, lithium-ion.","tags":["batteries"],"difficulty":"easy"},
+  {"id":"EC-030","question":"Lead-acid battery electrolyte.","answer":"Sulfuric acid (H₂SO₄).","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-031","question":"Lithium-ion battery anode material.","answer":"Graphite.","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-032","question":"Lithium-ion battery cathode material.","answer":"Lithium metal oxides (LiCoO₂, LiFePO₄).","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-033","question":"Fuel cell principle.","answer":"Electrochemical conversion of fuel (e.g., H₂) to electricity with oxidant (O₂).","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-034","question":"Electrolysis definition.","answer":"Using electric current to drive non-spontaneous reactions.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-035","question":"Faraday’s first law of electrolysis.","answer":"Mass deposited ∝ charge passed.","tags":["laws"],"difficulty":"medium"},
+  {"id":"EC-036","question":"Faraday’s second law.","answer":"Masses of substances deposited by same charge ∝ equivalent weights.","tags":["laws"],"difficulty":"medium"},
+  {"id":"EC-037","question":"Electroplating purpose.","answer":"Depositing thin layer of metal for protection/decoration.","tags":["applications"],"difficulty":"easy"},
+  {"id":"EC-038","question":"What is overpotential?","answer":"Extra voltage required beyond theoretical for electrolysis.","tags":["concepts"],"difficulty":"hard"},
+  {"id":"EC-039","question":"Polarization in cells.","answer":"Reduction in cell potential due to concentration or resistance effects.","tags":["concepts"],"difficulty":"medium"},
+  {"id":"EC-040","question":"Conductivity of electrolytes measured by?","answer":"Conductometric method.","tags":["methods"],"difficulty":"medium"},
+  {"id":"EC-041","question":"Molar conductivity definition.","answer":"Conductivity per mole of electrolyte: Λm = κ/ c.","tags":["formulas"],"difficulty":"medium"},
+  {"id":"EC-042","question":"Kohlrausch’s law.","answer":"At infinite dilution, molar conductivity = sum of ionic conductivities.","tags":["laws"],"difficulty":"hard"},
+  {"id":"EC-043","question":"Electrochemical series.","answer":"List of standard electrode potentials in order.","tags":["tables"],"difficulty":"easy"},
+  {"id":"EC-044","question":"Stronger oxidizing agent has what E° value?","answer":"More positive E°.","tags":["concepts"],"difficulty":"easy"},
+  {"id":"EC-045","question":"Stronger reducing agent has what E° value?","answer":"More negative E°.","tags":["concepts"],"difficulty":"easy"},
+  {"id":"EC-046","question":"Ion-selective electrode example.","answer":"Glass electrode for pH measurement.","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-047","question":"What is potentiometry?","answer":"Measuring cell potential without current flow to determine concentration.","tags":["methods"],"difficulty":"medium"},
+  {"id":"EC-048","question":"What is coulometry?","answer":"Analytical method based on total charge consumed in electrolysis.","tags":["methods"],"difficulty":"hard"},
+  {"id":"EC-049","question":"What is voltammetry?","answer":"Measuring current as function of applied potential.","tags":["methods"],"difficulty":"hard"},
+  {"id":"EC-050","question":"What is cyclic voltammetry used for?","answer":"Studying redox mechanisms and kinetics.","tags":["methods"],"difficulty":"hard"},
+  {"id":"EC-051","question":"Dry cell electrolyte.","answer":"Ammonium chloride paste (NH₄Cl).","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-052","question":"Alkaline battery electrolyte.","answer":"Potassium hydroxide (KOH).","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-053","question":"Nickel-cadmium battery electrolyte.","answer":"Potassium hydroxide (KOH).","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-054","question":"What is a redox couple?","answer":"Oxidized and reduced form of a species, e.g., Fe³⁺/Fe²⁺.","tags":["redox"],"difficulty":"easy"},
+  {"id":"EC-055","question":"Half-cell definition.","answer":"Electrode + electrolyte where oxidation/reduction occurs.","tags":["cells"],"difficulty":"easy"},
+  {"id":"EC-056","question":"EMF of a cell definition.","answer":"Maximum potential difference between electrodes under no current.","tags":["cells"],"difficulty":"medium"},
+  {"id":"EC-057","question":"Concentration cell.","answer":"Electrochemical cell where electrodes are same but ion concentrations differ.","tags":["cells"],"difficulty":"hard"},
+  {"id":"EC-058","question":"Liquid junction potential.","answer":"Potential difference at boundary between two electrolytes of different concentrations.","tags":["concepts"],"difficulty":"hard"},
+  {"id":"EC-059","question":"Primary cause of rusting in iron.","answer":"Electrochemical oxidation in presence of O₂ and H₂O.","tags":["corrosion"],"difficulty":"easy"},
+  {"id":"EC-060","question":"Galvanization.","answer":"Coating iron with zinc to prevent corrosion.","tags":["applications"],"difficulty":"easy"},
+  {"id":"EC-061","question":"Cathodic protection principle.","answer":"Making metal the cathode by attaching sacrificial anode (Zn, Mg).","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-062","question":"Electrochemical impedance spectroscopy (EIS).","answer":"Technique to measure frequency response of electrochemical systems.","tags":["methods"],"difficulty":"hard"},
+  {"id":"EC-063","question":"Application of fuel cells.","answer":"Power generation in vehicles and spacecraft.","tags":["applications"],"difficulty":"easy"},
+  {"id":"EC-064","question":"Alkaline fuel cell electrolyte.","answer":"KOH.","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-065","question":"PEM fuel cell electrolyte.","answer":"Proton-conducting polymer membrane.","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-066","question":"Solid oxide fuel cell electrolyte.","answer":"Oxide ion conductor (e.g., YSZ).","tags":["batteries"],"difficulty":"hard"},
+  {"id":"EC-067","question":"Flow battery.","answer":"Rechargeable battery with liquid electrolytes stored in tanks.","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-068","question":"Electrochemical capacitor.","answer":"Stores energy by ion adsorption or redox reactions at electrodes.","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-069","question":"Double layer capacitance origin.","answer":"Charge separation at electrode–electrolyte interface.","tags":["concepts"],"difficulty":"hard"},
+  {"id":"EC-070","question":"Electrochemical window of solvent.","answer":"Voltage range where solvent is stable without decomposition.","tags":["concepts"],"difficulty":"hard"},
+  {"id":"EC-071","question":"What is battery capacity?","answer":"Charge stored, usually in ampere-hours (Ah).","tags":["batteries"],"difficulty":"easy"},
+  {"id":"EC-072","question":"Energy density of a battery.","answer":"Energy per unit mass or volume (Wh/kg or Wh/L).","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-073","question":"Power density of a battery.","answer":"Power output per unit mass or volume (W/kg or W/L).","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-074","question":"Cycle life of battery.","answer":"Number of charge–discharge cycles before capacity drops significantly.","tags":["batteries"],"difficulty":"easy"},
+  {"id":"EC-075","question":"Self-discharge of battery.","answer":"Loss of charge when not in use due to side reactions.","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-076","question":"What is electrolyte decomposition voltage?","answer":"Minimum voltage at which electrolyte breaks down.","tags":["concepts"],"difficulty":"hard"},
+  {"id":"EC-077","question":"Electrode passivation.","answer":"Formation of insulating layer on electrode surface blocking reaction.","tags":["effects"],"difficulty":"hard"},
+  {"id":"EC-078","question":"Application of electrolysis of water.","answer":"Hydrogen production.","tags":["applications"],"difficulty":"easy"},
+  {"id":"EC-079","question":"Chlor-alkali process products.","answer":"Chlorine, hydrogen, sodium hydroxide.","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-080","question":"Electrowinning definition.","answer":"Extraction of metals from ores using electrolysis.","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-081","question":"Electrorefining definition.","answer":"Purification of metals using electrolytic cell.","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-082","question":"Electrosynthesis.","answer":"Using electrochemistry to synthesize organic/inorganic compounds.","tags":["applications"],"difficulty":"hard"},
+  {"id":"EC-083","question":"Redox flow batteries advantage.","answer":"Scalable energy storage for grids.","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-084","question":"Solid electrolyte advantage.","answer":"Prevents leakage, enhances safety.","tags":["batteries"],"difficulty":"medium"},
+  {"id":"EC-085","question":"Battery management system (BMS) role.","answer":"Monitors, balances, and protects battery operation.","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-086","question":"What is SEI layer in Li-ion batteries?","answer":"Solid electrolyte interphase forms on anode; stabilizes but consumes lithium.","tags":["effects"],"difficulty":"hard"},
+  {"id":"EC-087","question":"Electrochemical gradient in biology.","answer":"Combination of concentration and electric potential driving ion transport.","tags":["bio"],"difficulty":"easy"},
+  {"id":"EC-088","question":"Proton motive force in mitochondria.","answer":"Electrochemical gradient of H⁺ across membrane powers ATP synthesis.","tags":["bio"],"difficulty":"medium"},
+  {"id":"EC-089","question":"Nernst potential in neurons.","answer":"Equilibrium potential for an ion across a membrane.","tags":["bio"],"difficulty":"medium"},
+  {"id":"EC-090","question":"Electrochemical sensor.","answer":"Device detecting analytes via redox reactions at electrode.","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-091","question":"pH electrode principle.","answer":"Measures potential difference proportional to [H⁺].","tags":["applications"],"difficulty":"easy"},
+  {"id":"EC-092","question":"Electrochromic materials.","answer":"Change color under applied potential.","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-093","question":"Supercapacitor definition.","answer":"Electrochemical device storing energy with high power density.","tags":["applications"],"difficulty":"medium"},
+  {"id":"EC-094","question":"Pseudocapacitance origin.","answer":"Fast surface redox reactions at electrodes.","tags":["concepts"],"difficulty":"hard"},
+  {"id":"EC-095","question":"Electrochemical workstation.","answer":"Instrument to perform voltammetry, EIS, chronoamperometry, etc.","tags":["methods"],"difficulty":"medium"},
+  {"id":"EC-096","question":"Overcharge effect in batteries.","answer":"Causes heating, gas evolution, capacity fade.","tags":["effects"],"difficulty":"medium"},
+  {"id":"EC-097","question":"Thermal runaway in Li-ion batteries.","answer":"Exothermic reactions accelerate uncontrollably, risk of fire.","tags":["effects"],"difficulty":"hard"},
+  {"id":"EC-098","question":"Solid-state battery.","answer":"Battery with solid electrolyte instead of liquid.","tags":["batteries"],"difficulty":"hard"},
+  {"id":"EC-099","question":"Redox mediator.","answer":"Species that shuttles electrons between electrode and reactant.","tags":["concepts"],"difficulty":"hard"},
+  {"id":"EC-100","question":"Electrochemical potential definition.","answer":"Sum of chemical potential and electrical potential energy per mole of species.","tags":["formulas"],"difficulty":"hard"}
+]
+</script>
+<script type="application/json" id="topic-electricity">[
+  {"id":"ELEC-001","question":"What is electric current?","answer":"The rate of flow of electric charge, measured in amperes (A).","tags":["basics"],"difficulty":"easy"},
+  {"id":"ELEC-002","question":"Ohm’s Law equation?","answer":"V = I × R","tags":["ohm"],"difficulty":"easy"},
+  {"id":"ELEC-003","question":"Define voltage.","answer":"The potential difference between two points; energy per unit charge.","tags":["basics"],"difficulty":"easy"},
+  {"id":"ELEC-004","question":"Unit of electrical resistance?","answer":"Ohm (Ω).","tags":["units"],"difficulty":"easy"},
+  {"id":"ELEC-005","question":"Unit of capacitance?","answer":"Farad (F).","tags":["units"],"difficulty":"easy"},
+  {"id":"ELEC-006","question":"What is power in electrical circuits?","answer":"P = V × I = I²R = V²/R","tags":["power"],"difficulty":"easy"},
+  {"id":"ELEC-007","question":"Kirchhoff’s Current Law (KCL)?","answer":"The algebraic sum of currents entering a node = 0.","tags":["kcl"],"difficulty":"medium"},
+  {"id":"ELEC-008","question":"Kirchhoff’s Voltage Law (KVL)?","answer":"The algebraic sum of voltages around a closed loop = 0.","tags":["kvl"],"difficulty":"medium"},
+  {"id":"ELEC-009","question":"Resistors in series formula.","answer":"R_eq = R₁ + R₂ + …","tags":["resistors"],"difficulty":"easy"},
+  {"id":"ELEC-010","question":"Resistors in parallel formula.","answer":"1/R_eq = 1/R₁ + 1/R₂ + …","tags":["resistors"],"difficulty":"easy"},
+
+  {"id":"ELEC-011","question":"Capacitors in series formula.","answer":"1/C_eq = 1/C₁ + 1/C₂ + …","tags":["capacitors"],"difficulty":"medium"},
+  {"id":"ELEC-012","question":"Capacitors in parallel formula.","answer":"C_eq = C₁ + C₂ + …","tags":["capacitors"],"difficulty":"medium"},
+  {"id":"ELEC-013","question":"Inductor voltage relation.","answer":"v = L di/dt","tags":["inductors"],"difficulty":"medium"},
+  {"id":"ELEC-014","question":"Capacitor current relation.","answer":"i = C dv/dt","tags":["capacitors"],"difficulty":"medium"},
+  {"id":"ELEC-015","question":"Define RMS value.","answer":"Root Mean Square of alternating quantity; effective DC equivalent.","tags":["ac"],"difficulty":"medium"},
+  {"id":"ELEC-016","question":"Frequency unit?","answer":"Hertz (Hz).","tags":["units"],"difficulty":"easy"},
+  {"id":"ELEC-017","question":"Phasor representation is used for?","answer":"Simplifying AC analysis using complex numbers.","tags":["phasors"],"difficulty":"medium"},
+  {"id":"ELEC-018","question":"What is impedance?","answer":"Generalized opposition to AC: Z = R + jX.","tags":["ac"],"difficulty":"hard"},
+  {"id":"ELEC-019","question":"Power factor definition.","answer":"cos(φ) = Real power / Apparent power.","tags":["power"],"difficulty":"medium"},
+  {"id":"ELEC-020","question":"Resonant frequency of LC circuit.","answer":"f₀ = 1 / (2π√(LC)).","tags":["resonance"],"difficulty":"medium"},
+
+  {"id":"ELEC-021","question":"Thevenin’s theorem states?","answer":"Any linear circuit can be reduced to a single voltage source in series with resistance.","tags":["theorems"],"difficulty":"hard"},
+  {"id":"ELEC-022","question":"Norton’s theorem states?","answer":"Any linear circuit can be reduced to a current source in parallel with resistance.","tags":["theorems"],"difficulty":"hard"},
+  {"id":"ELEC-023","question":"Superposition theorem states?","answer":"Response in linear circuit = sum of individual sources’ effects.","tags":["theorems"],"difficulty":"hard"},
+  {"id":"ELEC-024","question":"Define conductance.","answer":"Reciprocal of resistance, G = 1/R, unit Siemens (S).","tags":["basics"],"difficulty":"easy"},
+  {"id":"ELEC-025","question":"Define susceptance.","answer":"Imaginary part of admittance (B).","tags":["ac"],"difficulty":"hard"},
+  {"id":"ELEC-026","question":"Skin effect in conductors?","answer":"AC current concentrates near surface at high frequency.","tags":["ac"],"difficulty":"hard"},
+  {"id":"ELEC-027","question":"Unit of magnetic flux?","answer":"Weber (Wb).","tags":["magnetism"],"difficulty":"easy"},
+  {"id":"ELEC-028","question":"Flux linkage and inductance relation.","answer":"λ = L × i.","tags":["inductors"],"difficulty":"medium"},
+  {"id":"ELEC-029","question":"Mutual inductance formula.","answer":"M = k√(L₁L₂), where k is coupling coefficient.","tags":["inductors"],"difficulty":"hard"},
+  {"id":"ELEC-030","question":"Energy stored in capacitor.","answer":"W = ½ C V².","tags":["energy"],"difficulty":"easy"},
+
+  {"id":"ELEC-031","question":"Energy stored in inductor.","answer":"W = ½ L I².","tags":["energy"],"difficulty":"easy"},
+  {"id":"ELEC-032","question":"Define electric field.","answer":"Force per unit charge, E = F/q.","tags":["fields"],"difficulty":"medium"},
+  {"id":"ELEC-033","question":"Unit of electric field intensity?","answer":"Volt per meter (V/m).","tags":["units"],"difficulty":"easy"},
+  {"id":"ELEC-034","question":"Coulomb’s Law equation.","answer":"F = k (q₁q₂)/r².","tags":["fields"],"difficulty":"medium"},
+  {"id":"ELEC-035","question":"Unit of electric charge?","answer":"Coulomb (C).","tags":["units"],"difficulty":"easy"},
+  {"id":"ELEC-036","question":"Drift velocity relation.","answer":"v_d = I / (n q A).","tags":["current"],"difficulty":"hard"},
+  {"id":"ELEC-037","question":"Define resistivity.","answer":"Property of material: ρ = R A / L.","tags":["resistance"],"difficulty":"medium"},
+  {"id":"ELEC-038","question":"Unit of resistivity?","answer":"Ohm·meter (Ω·m).","tags":["units"],"difficulty":"easy"},
+  {"id":"ELEC-039","question":"Temperature effect on resistance (metals).","answer":"Resistance increases with temperature.","tags":["resistance"],"difficulty":"medium"},
+  {"id":"ELEC-040","question":"Superconductors property?","answer":"Zero resistance below critical temperature.","tags":["materials"],"difficulty":"hard"},
+
+  {"id":"ELEC-041","question":"Define dielectric constant.","answer":"Ratio of permittivity to vacuum permittivity: ε_r = ε/ε₀.","tags":["capacitors"],"difficulty":"medium"},
+  {"id":"ELEC-042","question":"Permittivity of free space value?","answer":"ε₀ ≈ 8.85 × 10⁻¹² F/m.","tags":["constants"],"difficulty":"medium"},
+  {"id":"ELEC-043","question":"Permeability of free space value?","answer":"μ₀ = 4π × 10⁻⁷ H/m.","tags":["constants"],"difficulty":"medium"},
+  {"id":"ELEC-044","question":"Relation between c, μ₀, ε₀?","answer":"c = 1/√(μ₀ε₀).","tags":["constants"],"difficulty":"hard"},
+  {"id":"ELEC-045","question":"Define displacement current.","answer":"Term added by Maxwell: i_d = ε dΦE/dt.","tags":["fields"],"difficulty":"hard"},
+  {"id":"ELEC-046","question":"Root-mean-square current in sine wave?","answer":"I_rms = I_peak/√2.","tags":["ac"],"difficulty":"easy"},
+  {"id":"ELEC-047","question":"Average value of half-wave rectified sine?","answer":"I_avg = I_m/π.","tags":["ac"],"difficulty":"medium"},
+  {"id":"ELEC-048","question":"Average value of full-wave rectified sine?","answer":"I_avg = 2I_m/π.","tags":["ac"],"difficulty":"medium"},
+  {"id":"ELEC-049","question":"Form factor definition.","answer":"FF = RMS value / Average value.","tags":["ac"],"difficulty":"medium"},
+  {"id":"ELEC-050","question":"Crest factor definition.","answer":"CF = Peak value / RMS value.","tags":["ac"],"difficulty":"medium"},
+
+  {"id":"ELEC-051","question":"Define DC generator principle.","answer":"Faraday’s law of electromagnetic induction.","tags":["machines"],"difficulty":"medium"},
+  {"id":"ELEC-052","question":"Transformer EMF equation.","answer":"E = 4.44 f N Φ_max.","tags":["transformer"],"difficulty":"hard"},
+  {"id":"ELEC-053","question":"Efficiency formula.","answer":"η = (Output Power / Input Power) × 100%.","tags":["power"],"difficulty":"easy"},
+  {"id":"ELEC-054","question":"Copper loss in machines?","answer":"I²R losses in windings.","tags":["losses"],"difficulty":"medium"},
+  {"id":"ELEC-055","question":"Hysteresis loss formula.","answer":"P_h = η B_max^1.6 f V.","tags":["losses"],"difficulty":"hard"},
+  {"id":"ELEC-056","question":"Eddy current loss formula.","answer":"P_e = k_e B_max² f² t² V.","tags":["losses"],"difficulty":"hard"},
+  {"id":"ELEC-057","question":"Define insulation resistance.","answer":"Resistance offered by insulating material to leakage current.","tags":["safety"],"difficulty":"medium"},
+  {"id":"ELEC-058","question":"What is dielectric strength?","answer":"Maximum electric field before breakdown.","tags":["capacitors"],"difficulty":"medium"},
+  {"id":"ELEC-059","question":"Grounding purpose?","answer":"Provides safety by diverting fault current to earth.","tags":["safety"],"difficulty":"easy"},
+  {"id":"ELEC-060","question":"Fuse principle?","answer":"Protective device that melts under overcurrent.","tags":["protection"],"difficulty":"easy"},
+
+  {"id":"ELEC-061","question":"Circuit breaker function?","answer":"Interrupts fault current automatically.","tags":["protection"],"difficulty":"medium"},
+  {"id":"ELEC-062","question":"Lightning arrester purpose?","answer":"Protects equipment from high-voltage surges.","tags":["protection"],"difficulty":"medium"},
+  {"id":"ELEC-063","question":"Surge protector principle?","answer":"Clamps overvoltage to safe level.","tags":["protection"],"difficulty":"medium"},
+  {"id":"ELEC-064","question":"Define short circuit.","answer":"Low resistance path causing excessive current flow.","tags":["faults"],"difficulty":"easy"},
+  {"id":"ELEC-065","question":"Define open circuit.","answer":"Break in circuit, no current flows.","tags":["faults"],"difficulty":"easy"},
+  {"id":"ELEC-066","question":"What is load in a circuit?","answer":"Component/device consuming electric power.","tags":["basics"],"difficulty":"easy"},
+  {"id":"ELEC-067","question":"What is a relay?","answer":"Electromagnetically operated switch.","tags":["control"],"difficulty":"medium"},
+  {"id":"ELEC-068","question":"What is a solenoid?","answer":"Coil of wire that produces magnetic field when energized.","tags":["magnetism"],"difficulty":"medium"},
+  {"id":"ELEC-069","question":"Define electromotive force (emf).","answer":"Work done per unit charge by source.","tags":["basics"],"difficulty":"medium"},
+  {"id":"ELEC-070","question":"Difference: EMF vs Voltage.","answer":"EMF = generated potential, open-circuit; Voltage = potential difference under load.","tags":["basics"],"difficulty":"medium"},
+
+  {"id":"ELEC-071","question":"Ideal voltage source property?","answer":"Maintains constant voltage regardless of load.","tags":["sources"],"difficulty":"medium"},
+  {"id":"ELEC-072","question":"Ideal current source property?","answer":"Maintains constant current regardless of load.","tags":["sources"],"difficulty":"medium"},
+  {"id":"ELEC-073","question":"Real source model?","answer":"Voltage source with series resistance or current source with parallel resistance.","tags":["sources"],"difficulty":"medium"},
+  {"id":"ELEC-074","question":"Maximum power transfer theorem.","answer":"Max power delivered when load resistance = source resistance.","tags":["theorems"],"difficulty":"medium"},
+  {"id":"ELEC-075","question":"Efficiency at maximum power transfer?","answer":"50%.","tags":["theorems"],"difficulty":"hard"},
+  {"id":"ELEC-076","question":"Delta to star conversion formula (R_y).","answer":"R_y = (R_ab R_ac)/(R_ab+R_bc+R_ca).","tags":["networks"],"difficulty":"hard"},
+  {"id":"ELEC-077","question":"Star to delta conversion formula (R_ab).","answer":"R_ab = (R_a+R_b+R_aR_b/R_c).","tags":["networks"],"difficulty":"hard"},
+  {"id":"ELEC-078","question":"Unit of admittance?","answer":"Siemens (S).","tags":["ac"],"difficulty":"easy"},
+  {"id":"ELEC-079","question":"Define active power.","answer":"P = VI cosφ, measured in watts.","tags":["power"],"difficulty":"medium"},
+  {"id":"ELEC-080","question":"Define reactive power.","answer":"Q = VI sinφ, measured in VAR.","tags":["power"],"difficulty":"medium"},
+
+  {"id":"ELEC-081","question":"Define apparent power.","answer":"S = VI, measured in VA.","tags":["power"],"difficulty":"medium"},
+  {"id":"ELEC-082","question":"Triangle relation of powers?","answer":"S² = P² + Q².","tags":["power"],"difficulty":"medium"},
+  {"id":"ELEC-083","question":"What is load factor?","answer":"Average load / Maximum demand.","tags":["power"],"difficulty":"hard"},
+  {"id":"ELEC-084","question":"What is diversity factor?","answer":"Sum of individual max demands / Max demand of whole system.","tags":["power"],"difficulty":"hard"},
+  {"id":"ELEC-085","question":"Utilization factor?","answer":"Maximum demand / Rated capacity.","tags":["power"],"difficulty":"hard"},
+  {"id":"ELEC-086","question":"Demand factor?","answer":"Maximum demand / Total connected load.","tags":["power"],"difficulty":"hard"},
+  {"id":"ELEC-087","question":"Load curve shows?","answer":"Variation of load with time.","tags":["power"],"difficulty":"medium"},
+  {"id":"ELEC-088","question":"What is power quality?","answer":"Measure of voltage stability, harmonics, and reliability.","tags":["power"],"difficulty":"hard"},
+  {"id":"ELEC-089","question":"Define harmonic distortion.","answer":"Presence of frequencies that are multiples of fundamental.","tags":["ac"],"difficulty":"hard"},
+  {"id":"ELEC-090","question":"Total harmonic distortion (THD)?","answer":"THD = √(ΣV_h²)/V₁.","tags":["ac"],"difficulty":"hard"},
+
+  {"id":"ELEC-091","question":"What is RMS of square wave?","answer":"Equal to its peak value.","tags":["ac"],"difficulty":"medium"},
+  {"id":"ELEC-092","question":"What is RMS of triangular wave?","answer":"V_rms = V_peak/√3.","tags":["ac"],"difficulty":"hard"},
+  {"id":"ELEC-093","question":"Unit of energy consumed by load?","answer":"Kilowatt-hour (kWh).","tags":["energy"],"difficulty":"easy"},
+  {"id":"ELEC-094","question":"Define electric potential.","answer":"Work done per unit charge to move from infinity to a point.","tags":["fields"],"difficulty":"medium"},
+  {"id":"ELEC-095","question":"Equipotential surface definition.","answer":"Surface with constant potential; no work is done moving along it.","tags":["fields"],"difficulty":"medium"},
+  {"id":"ELEC-096","question":"Gauss’s law statement.","answer":"Electric flux through closed surface = Q_enclosed/ε₀.","tags":["fields"],"difficulty":"hard"},
+  {"id":"ELEC-097","question":"Faraday’s law of electromagnetic induction.","answer":"Induced emf = -dΦ/dt.","tags":["magnetism"],"difficulty":"medium"},
+  {"id":"ELEC-098","question":"Lenz’s law.","answer":"Induced current opposes the cause producing it.","tags":["magnetism"],"difficulty":"medium"},
+  {"id":"ELEC-099","question":"Ampere’s circuital law.","answer":"∮B·dl = μ₀I_enclosed.","tags":["magnetism"],"difficulty":"hard"},
+  {"id":"ELEC-100","question":"Maxwell’s equations unify?","answer":"Electricity and magnetism into electromagnetism.","tags":["fields"],"difficulty":"hard"}
+]</script>
+
+
+
+<!-- ==========================
+     App logic
+     ========================== -->
+<script>
+  (function(){
+    'use strict';
+
+    const topicSelect = document.getElementById('topicSelect');
+    const qText = document.getElementById('qText');
+    const aText = document.getElementById('aText');
+    const metaFront = document.getElementById('metaFront');
+    const metaBack = document.getElementById('metaBack');
+    const card = document.getElementById('card');
+    const cardInner = document.getElementById('cardInner');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const progressFill = document.getElementById('progressFill');
+    const counter = document.getElementById('counter');
+    const themeBtn = document.getElementById('themeBtn');
+    const loadJsonBtn = document.getElementById('loadJsonBtn');
+
+    const chooserDlg = document.getElementById('chooserDlg');
+    document.getElementById('flashcardsChooser').addEventListener('click', (e)=>{ e.preventDefault(); chooserDlg.showModal(); });
+    document.getElementById('closeChooser').addEventListener('click', ()=> chooserDlg.close());
+
+    // Theme restore
+    try { if (localStorage.getItem('mse:theme') === 'dark') document.body.classList.add('dark'); } catch {}
+    themeBtn.addEventListener('click', ()=> {
+      document.body.classList.toggle('dark');
+      try { localStorage.setItem('mse:theme', document.body.classList.contains('dark') ? 'dark' : 'light'); } catch {}
+    });
+
+    let deck = [];
+    let idx = 0;
+
+    function loadTopicFromScript(scriptId){
+      const el = document.getElementById(scriptId);
+      if (!el) { alert('Topic not found: ' + scriptId); return; }
+      try {
+        const arr = JSON.parse(el.textContent);
+        if (!Array.isArray(arr) || arr.length === 0) throw new Error('Empty or invalid deck');
+        deck = arr;
+        idx = 0;
+        saveLastTopic(scriptId);
+        render();
+      } catch (e){
+        alert('Failed to parse topic: ' + (e.message || e));
+      }
+    }
+
+    function saveLastTopic(id){ try { localStorage.setItem('mse:lastTopic', id); } catch {} }
+    function restoreLastTopic(){
+      try {
+        const id = localStorage.getItem('mse:lastTopic');
+        if (id && document.getElementById(id)) {
+          topicSelect.value = id;
+          loadTopicFromScript(id);
+          return true;
+        }
+      } catch {}
+      return false;
+    }
+
+    function render(){
+      if (!deck.length) return;
+      const c = deck[idx];
+      qText.textContent = c.question;
+      aText.textContent = c.answer;
+      metaFront.textContent = [
+        c.tags && c.tags.length ? `Tags: ${c.tags.join(', ')}` : null,
+        c.difficulty ? `Difficulty: ${c.difficulty}` : null
+      ].filter(Boolean).join('  •  ') || ' ';
+      metaBack.textContent = c.id ? `ID: ${c.id}` : ' ';
+      counter.textContent = `Card ${idx+1} / ${deck.length}`;
+      progressFill.style.width = `${((idx+1)/deck.length)*100}%`;
+      card.classList.remove('flipped');
+    }
+
+    function next(n=1){
+      if (!deck.length) return;
+      idx = (idx + n + deck.length) % deck.length;
+      render();
+    }
+
+    function shuffle(){
+      for (let i = deck.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+      idx = 0;
+      render();
+    }
+
+    // Events
+    topicSelect.addEventListener('change', e => loadTopicFromScript(e.target.value));
+    card.addEventListener('click', ()=> card.classList.toggle('flipped'));
+    nextBtn.addEventListener('click', ()=> next(1));
+    prevBtn.addEventListener('click', ()=> next(-1));
+    // long-press Next to jump +5
+    let pressT=null;
+    nextBtn.addEventListener('pointerdown', ()=> pressT = setTimeout(()=> next(5), 500));
+    nextBtn.addEventListener('pointerup', ()=> { clearTimeout(pressT); pressT=null; });
+    nextBtn.addEventListener('pointerleave', ()=> { clearTimeout(pressT); pressT=null; });
+
+    shuffleBtn.addEventListener('click', shuffle);
+    resetBtn.addEventListener('click', ()=> { idx=0; render(); });
+
+    // Keyboard support (optional)
+    window.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight') next(1);
+      if (e.key === 'ArrowLeft') next(-1);
+      if (e.key === ' ') card.classList.toggle('flipped');
+    });
+
+    // Offline JSON loader (choose a local .json with an array of {question,answer,...})
+    loadJsonBtn.addEventListener('click', async ()=>{
+      try{
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+        input.onchange = () => {
+          const f = input.files && input.files[0];
+          if (!f) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try{
+              const arr = JSON.parse(reader.result);
+              if (!Array.isArray(arr) || arr.length === 0) throw new Error('Invalid or empty JSON deck');
+              deck = normalizeDeck(arr);
+              idx = 0;
+              // Add a temporary topic option so you can switch away/back if desired
+              const tempId = 'topic-loaded';
+              ensureTempOption(tempId, f.name.replace(/\.json$/i,'') + ' (loaded)');
+              topicSelect.value = tempId;
+              render();
+            }catch(err){ alert('Error parsing JSON: ' + err.message); }
+          };
+          reader.readAsText(f);
+        };
+        input.click();
+      }catch(err){ alert('Load failed: ' + (err.message||err)); }
+    });
+
+    function ensureTempOption(id, label){
+      let opt = topicSelect.querySelector(`option[value="${id}"]`);
+      if (!opt){
+        opt = document.createElement('option');
+        opt.value = id; opt.textContent = label;
+        topicSelect.appendChild(opt);
+      } else {
+        opt.textContent = label;
+      }
+    }
+
+    function normalizeDeck(arr){
+      return arr.map((c, i) => ({
+        id: c.id || `CARD-${i+1}`,
+        question: c.question || c.q || '',
+        answer: c.answer || c.a || '',
+        tags: c.tags || [],
+        difficulty: c.difficulty || ''
+      })).filter(c => c.question && c.answer);
+    }
+
+    // Init
+    if (!restoreLastTopic()){
+      loadTopicFromScript(topicSelect.value);
+    }
+  })();
+</script>
+</body>
+</html>
